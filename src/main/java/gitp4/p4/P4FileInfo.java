@@ -20,7 +20,7 @@ public class P4FileInfo {
 
     private final String file;
     private final int revision;
-    private final String operation;
+    private final P4Operation operation;
 
     public static boolean isValid(String infoString) {
         return pattern.matcher(infoString).matches();
@@ -32,7 +32,7 @@ public class P4FileInfo {
         if (!matcher.matches()) throw new IllegalArgumentException(String.format("invalid p4 file info %s", infoString));
         file = matcher.group(fileGroupId);
         revision = Integer.parseInt(matcher.group(revisionGroupId));
-        operation = matcher.group(operationGroupId);
+        operation = P4Operation.valueOf(matcher.group(operationGroupId));
     }
 
     public String getFile() {
@@ -43,7 +43,7 @@ public class P4FileInfo {
         return revision;
     }
 
-    public String getOperation() {
+    public P4Operation getOperation() {
         return operation;
     }
 

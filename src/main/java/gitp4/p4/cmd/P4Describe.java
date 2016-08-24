@@ -1,5 +1,6 @@
 package gitp4.p4.cmd;
 
+import gitp4.CmdRunner;
 import gitp4.p4.P4Change;
 import gitp4.p4.P4ChangeListInfo;
 

@@ -1,6 +1,5 @@
-package gitp4.p4.cmd;
+package gitp4;
 
-import gitp4.CommandRunner;
 import org.apache.log4j.Logger;
 
 import java.util.List;

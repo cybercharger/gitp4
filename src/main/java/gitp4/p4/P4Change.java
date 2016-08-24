@@ -6,16 +6,16 @@ import java.util.regex.Pattern;
 /**
  * Created by chriskang on 8/23/2016.
  */
-public class P4Change {
+public class P4Change implements Comparable<P4Change> {
     private final String p4ChangeString;
     private final String changeList;
     private final String comments;
     private final String date;
-    private final String user;
+    private final P4UserInfo p4UserInfo;
 
     private static final String changeListGroupId = "changelist";
     private static final String dateGroupId = "date";
-    private static final String userGroupId = "user";
+    private static final String userGroupId = "p4UserInfo";
     private static final String commentsGroupId = "comments";
 
     private static final String p4ChangePatternStr = String.format(
@@ -33,7 +33,7 @@ public class P4Change {
         this.changeList = matcher.group(changeListGroupId);
         this.comments = matcher.group(commentsGroupId);
         this.date = matcher.group(dateGroupId);
-        this.user = matcher.group(userGroupId);
+        this.p4UserInfo = new P4UserInfo(matcher.group(userGroupId));
     }
 
     public String getChangeList() {
@@ -48,8 +48,8 @@ public class P4Change {
         return date;
     }
 
-    public String getUser() {
-        return user;
+    public P4UserInfo getP4UserInfo() {
+        return p4UserInfo;
     }
 
     public static P4Change create(String p4ChangeString) {
@@ -59,5 +59,11 @@ public class P4Change {
     @Override
     public String toString() {
         return p4ChangeString;
+    }
+
+    @Override
+    public int compareTo(P4Change o) {
+        if (o == null) return -1;
+        return Integer.parseInt(this.changeList) - Integer.parseInt(o.getChangeList());
     }
 }

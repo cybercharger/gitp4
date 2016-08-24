@@ -1,5 +1,6 @@
 package gitp4.p4.cmd;
 
+import gitp4.CmdRunner;
 import org.apache.commons.lang3.StringUtils;
 
 /**
