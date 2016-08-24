@@ -10,7 +10,6 @@ public class P4Describe {
     public static final String P4_CHANGES_CMD = "p4 describe %s";
 
     public static P4ChangeListInfo run(final P4Change p4Change) throws Exception {
-        return CmdRunner.run(() -> String.format(P4_CHANGES_CMD, p4Change.getChangeList()),
-                P4ChangeListInfo::new);
+        return CmdRunner.run(() -> String.format(P4_CHANGES_CMD, p4Change.getChangeList()), P4ChangeListInfo::new);
     }
 }
