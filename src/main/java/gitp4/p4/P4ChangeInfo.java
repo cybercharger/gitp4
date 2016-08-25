@@ -6,7 +6,7 @@ import java.util.regex.Pattern;
 /**
  * Created by chriskang on 8/23/2016.
  */
-public class P4Change implements Comparable<P4Change> {
+public class P4ChangeInfo implements Comparable<P4ChangeInfo> {
     private final String p4ChangeString;
     private final String changeList;
     private final String comments;
@@ -24,7 +24,7 @@ public class P4Change implements Comparable<P4Change> {
     private static final Pattern p4ChangePattern = Pattern.compile(p4ChangePatternStr);
 
 
-    private P4Change(String p4ChangeString) {
+    private P4ChangeInfo(String p4ChangeString) {
         Matcher matcher = p4ChangePattern.matcher(p4ChangeString);
         if (!matcher.matches()) {
             throw new IllegalArgumentException(String.format("%1$s doesn't match pattern %2$s", p4ChangeString, p4ChangePatternStr));
@@ -52,8 +52,8 @@ public class P4Change implements Comparable<P4Change> {
         return p4UserInfo;
     }
 
-    public static P4Change create(String p4ChangeString) {
-        return new P4Change(p4ChangeString);
+    public static P4ChangeInfo create(String p4ChangeString) {
+        return new P4ChangeInfo(p4ChangeString);
     }
 
     @Override
@@ -62,7 +62,7 @@ public class P4Change implements Comparable<P4Change> {
     }
 
     @Override
-    public int compareTo(P4Change o) {
+    public int compareTo(P4ChangeInfo o) {
         if (o == null) return -1;
         return Integer.parseInt(this.changeList) - Integer.parseInt(o.getChangeList());
     }

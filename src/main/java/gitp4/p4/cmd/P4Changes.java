@@ -1,13 +1,11 @@
 package gitp4.p4.cmd;
 
 import gitp4.CmdRunner;
-import gitp4.p4.P4Change;
+import gitp4.p4.P4ChangeInfo;
 import org.apache.commons.lang3.StringUtils;
 
-import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * Created by chriskang on 8/23/2016.
@@ -15,18 +13,16 @@ import java.util.stream.Collectors;
 public class P4Changes {
     private static final String HEAD = "#head";
     private static final String SLASH = "/";
-    private static final String P4_CHANGES_CMD = "p4 changes %1$s...%2$s";
+    private static final String P4_CHANGES_CMD = "p4 changes %s";
 
-    public static List<P4Change> run(String p4Repository, String to, String from) throws Exception {
-        if (StringUtils.isBlank(p4Repository)) throw new IllegalArgumentException("p4Repository is blank");
-        final String cmdP4Repository = p4Repository.endsWith(SLASH) ? p4Repository : p4Repository + SLASH;
-        final String fromTo = parseFromTo(from, to);
+    public static List<P4ChangeInfo> run(String parameters) throws Exception {
+        String cmdParams = StringUtils.isBlank(parameters) ? "" : parameters;
 
-        return CmdRunner.run(() -> String.format(P4_CHANGES_CMD, cmdP4Repository, fromTo),
+        return CmdRunner.run(() -> String.format(P4_CHANGES_CMD, cmdParams),
                 (cmdRes) -> {
-                    LinkedList<P4Change> result = new LinkedList<>();
+                    LinkedList<P4ChangeInfo> result = new LinkedList<>();
                     for (String line : cmdRes) {
-                        P4Change change = P4Change.create(line);
+                        P4ChangeInfo change = P4ChangeInfo.create(line);
                         result.add(0, change);
                     }
                     return result;
@@ -39,10 +35,10 @@ public class P4Changes {
             if (HEAD.equals(from)) sb.append(HEAD);
             else sb.append("@").append(from);
         }
-        if (sb.length() > 0 && !StringUtils.isBlank(to)){
+        if (sb.length() > 0 && !StringUtils.isBlank(to)) {
             sb.append(",");
             if (HEAD.equals(to)) sb.append(HEAD);
-            else sb.append("@").append(from);
+            else sb.append("@").append(to);
         }
         return sb.toString();
     }

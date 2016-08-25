@@ -11,8 +11,13 @@ import gitp4.p4.cmd.P4Print;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Properties;
 
 /**
  * Created by chriskang on 8/24/2016.
@@ -20,26 +25,43 @@ import java.util.List;
 public class GitP4Bridge {
     private static Logger logger = Logger.getLogger(GitP4Bridge.class);
 
-    private static final String commitCommentsTemplate = "%1$s\n [git-p4 depot-paths = %2$s: change = %3$s]";
+    private static final String commitCommentsTemplate = "%1$s [git-p4 depot-paths = %2$s: change = %3$s]";
 
-    public void clone(String p4Repository) throws Exception {
-        if (StringUtils.isBlank(p4Repository)) throw new NullPointerException("p4Repository");
+    private static final Path gitP4DirPath = Paths.get(".gitp4");
+    private static final Path gitDirPath = Paths.get(".git");
+    private static final Path gitP4ConfigFilePath = Paths.get(gitP4DirPath.toString(), "config");
+
+    @GitP4Operation
+    public void clone(String parameters) throws Exception {
+
+        if (StringUtils.isBlank(parameters)) throw new NullPointerException("parameters");
+
+        if (Files.exists(gitDirPath) || Files.exists(gitP4DirPath)) {
+            throw new IllegalStateException("This folder is already initialized for git or cloned from p4 repo");
+        }
+
+
         logger.info("Git init current directory...");
         GitInit.run("");
 
-        List<P4Change> p4Changes = P4Changes.run(p4Repository, null, null);
-        p4Changes.sort(P4Change::compareTo);
+        List<P4ChangeInfo> p4Changes = P4Changes.run(parameters);
+        p4Changes.sort(P4ChangeInfo::compareTo);
         logger.info(String.format("Totally %d changelist(s) to clone", p4Changes.size()));
 
-        P4RepositoryInfo repoInfo = new P4RepositoryInfo(p4Repository);
+        P4RepositoryInfo repoInfo = new P4RepositoryInfo(parameters);
 
-        for (P4Change change : p4Changes) {
-            P4ChangeListInfo clInfo = P4Describe.run(change);
+        String lastChangelist = "0";
+        for (P4ChangeInfo change : p4Changes) {
+            P4ChangeListInfo clInfo = P4Describe.run(change.getChangeList());
             gitAddRmChangelist(clInfo, repoInfo);
             gitCommitChangelist(clInfo, repoInfo);
+            lastChangelist = clInfo.getChangelist();
         }
+
+        createGitP4Directory(repoInfo, lastChangelist);
     }
 
+    @GitP4Operation
     public void sync(String p4Repository, String toChangelist, String fromChangelist) {
 
     }
@@ -69,5 +91,16 @@ public class GitP4Bridge {
         String comments = String.format(commitCommentsTemplate,
                 clInfo.getFullComments(), p4Repository.getPath(), clInfo.getChangelist());
         GitCommit.run(comments);
+    }
+
+    private void createGitP4Directory(P4RepositoryInfo p4RepositoryInfo, String lastChangelist) throws IOException {
+        if (Files.exists(gitP4DirPath)) {
+            throw new IllegalStateException("This folder is already initialized for git or cloned from p4 repo");
+        }
+        Files.createDirectory(gitP4DirPath);
+        Properties config = new Properties();
+        config.setProperty(GitP4Config.p4Repo, p4RepositoryInfo.getPath());
+        config.setProperty(GitP4Config.lastSync, lastChangelist);
+        GitP4Config.save(config, gitP4ConfigFilePath, ".gitp4 config");
     }
 }

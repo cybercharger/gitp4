@@ -1,16 +1,18 @@
 package gitp4;
 
 
-import gitp4.p4.P4Change;
+import gitp4.p4.P4ChangeInfo;
 import gitp4.p4.P4ChangeListInfo;
 import gitp4.p4.P4FileInfo;
+import gitp4.p4.P4Operation;
 import junit.framework.Assert;
 import org.apache.commons.lang3.StringUtils;
 import org.junit.Test;
 
-import java.util.ArrayList;
+import java.io.IOException;
+import java.nio.file.Paths;
 import java.util.Arrays;
-import java.util.List;
+import java.util.Properties;
 
 /**
  * Unit test for simple App.
@@ -19,10 +21,10 @@ public class AppTest {
     @Test
     public void testP4Change() {
         final String info = "Change 313596 on 2016/08/22 by EASAP\\chriskang@EASAP_chriskang_ws5 'change on p4: revision 6 '";
-        P4Change change = P4Change.create(info);
+        P4ChangeInfo change = P4ChangeInfo.create(info);
         Assert.assertEquals("313596", change.getChangeList());
         Assert.assertEquals("2016/08/22", change.getDate());
-        Assert.assertEquals("EASAP\\chriskang@EASAP_chriskang_ws5", change.getP4UserInfo());
+        Assert.assertEquals("EASAP\\chriskang@EASAP_chriskang_ws5", change.getP4UserInfo().toString());
         Assert.assertEquals("'change on p4: revision 6 '", change.getComments());
     }
 
@@ -32,7 +34,7 @@ public class AppTest {
         P4FileInfo fileInfo = new P4FileInfo(info);
         Assert.assertEquals("//nucleus/SANDBOX/testgitp4/createdOnGit.txt", fileInfo.getFile());
         Assert.assertEquals(6, fileInfo.getRevision());
-        Assert.assertEquals("edit", fileInfo.getOperation());
+        Assert.assertEquals(P4Operation.edit, fileInfo.getOperation());
     }
 
     @Test
@@ -51,4 +53,15 @@ public class AppTest {
         Assert.assertEquals("EASAP_chriskang_ws5", clInfo.getP4UserInfo().getWorkspace());
         Assert.assertEquals("        change on p4: revision 6\nABC", clInfo.getFullComments());
     }
+
+//    @Test
+//    public void testConfig() {
+//        Properties p = new Properties();
+//        p.setProperty("test", "value");
+//        try {
+//            GitP4Config.save(p, Paths.get("d:\\tmp\\test.properties"), "test");
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
+//    }
 }

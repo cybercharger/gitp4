@@ -6,7 +6,7 @@ import org.apache.commons.lang3.StringUtils;
  * Created by chriskang on 8/24/2016.
  */
 public class P4RepositoryInfo {
-    private static final String SLASH = "/";
+    private static final char SLASH = '/';
 
     public String getPath() {
         return path;
@@ -16,6 +16,8 @@ public class P4RepositoryInfo {
 
     public P4RepositoryInfo(String path) {
         if (StringUtils.isBlank(path)) throw new NullPointerException("path");
-        this.path = path.endsWith(SLASH) ? path : path + SLASH;
+        int lastSlash = path.lastIndexOf(SLASH);
+        // [begin, end), last slash is needed in this case
+        this.path = path.substring(0, lastSlash + 1);
     }
 }
