@@ -23,25 +23,27 @@ class GitP4Bridge {
 
     private static final String commitCommentsTemplate = "%1$s [git-p4 depot-paths = %2$s: change = %3$s]";
     private static final String GIT_P4_SYNC_CMD_FMT = "%1$s...@%2$d,#head";
+    private static final String lastSubmitTag = "last_p4_submit";
+    private static final String p4IntBranchName = "p4-integ";
 
     private static final Path gitP4DirPath = Paths.get(".gitp4");
     private static final Path gitDirPath = Paths.get(".git");
     private static final Path gitP4ConfigFilePath = Paths.get(gitP4DirPath.toString(), "config");
 
     private static class MethodInfo {
-        public final int paramNum;
-        public final Method method;
+        final int paramNum;
+        final Method method;
 
-        public MethodInfo(int paramNum, Method method) {
+        MethodInfo(int paramNum, Method method) {
             this.paramNum = paramNum;
             this.method = method;
         }
     }
 
 
-    public void operate(String[] args) throws InvocationTargetException, IllegalAccessException {
+    void operate(String[] args) throws InvocationTargetException, IllegalAccessException {
         Map<String, MethodInfo> methodMap = new HashMap<>();
-        for(Method m : GitP4Bridge.class.getDeclaredMethods()) {
+        for (Method m : GitP4Bridge.class.getDeclaredMethods()) {
             GitP4Operation gpo = m.getAnnotation(GitP4Operation.class);
             if (gpo == null) continue;
             methodMap.put(m.getName(), new MethodInfo(gpo.paramNum(), m));
@@ -61,6 +63,7 @@ class GitP4Bridge {
         List<String> newArgs = requiredParamNum > 0 ? Arrays.asList(Arrays.copyOfRange(args, 1, args.length)) : null;
         methodMap.get(args[0]).method.invoke(this, newArgs);
     }
+
     private static void logError(Set<String> operations) {
         logger.error("Please provide operation and proper parameters");
         logger.error(String.format("Valid operations are: \n%s", StringUtils.join(operations, "\n")));
@@ -93,7 +96,8 @@ class GitP4Bridge {
         String lastChangelist = applyP4Changes(p4Changes, repoInfo);
 
         createGitP4Directory(repoInfo, lastChangelist);
-        GitCheckout.run("-b p4-integ");
+        GitTag.run(lastSubmitTag, "git p4 clone");
+        GitCheckout.run(String.format("-b %s", p4IntBranchName));
     }
 
     @GitP4Operation(paramNum = 0)

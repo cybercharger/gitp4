@@ -13,6 +13,8 @@ import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.List;
+import java.util.Optional;
 import java.util.Properties;
 
 /**
@@ -55,14 +57,4 @@ public class AppTest {
         Assert.assertEquals("        change on p4: revision 6\nABC", clInfo.getFullComments());
     }
 
-//    @Test
-//    public void testConfig() {
-//        Properties p = new Properties();
-//        p.setProperty("test", "value");
-//        try {
-//            GitP4Config.save(p, Paths.get("d:\\tmp\\test.properties"), "test");
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
-//    }
 }

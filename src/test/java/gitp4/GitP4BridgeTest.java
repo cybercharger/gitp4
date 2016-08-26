@@ -9,6 +9,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.lang.reflect.InvocationTargetException;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Optional;
 
 /**
  * Created by chriskang on 8/26/2016.
@@ -35,4 +38,14 @@ public class GitP4BridgeTest {
         Assert.assertEquals("first param is: arg1, second param is: arg2", myOut.toString());
     }
 
+    @Test
+    public void testFilterFindFirst() {
+        List<Integer> list = Arrays.asList(1, 10, 3, 7, 5);
+        Optional<Integer> a = list.stream().map(x -> {
+            System.out.print(x + ",");
+            return x;
+        }).filter(x -> x > 5).findFirst();
+        System.out.print(a.isPresent() ? a.get() : new Integer(0));
+        Assert.assertEquals("1,10,10", myOut.toString());
+    }
 }
