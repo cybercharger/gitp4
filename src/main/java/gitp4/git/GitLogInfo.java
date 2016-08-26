@@ -11,8 +11,8 @@ import java.util.regex.Pattern;
 public class GitLogInfo {
     public static final String CMD_PARAM = "--pretty=oneline";
     private static final String commitGroupId = "commit";
-    private static final String commentGroupId = "commit";
-    private static final Pattern pattern = Pattern.compile(String.format("(?<%1$s>[a-f0-9]{40})\\s(?<%2$s>.+)", commitGroupId, commentGroupId));
+    private static final String commentGroupId = "comments";
+    private static final Pattern pattern = Pattern.compile(String.format("(?<%1$s>[a-f0-9]{40})\\s+(?<%2$s>.+)", commitGroupId, commentGroupId));
 
     private final String commit;
     private final String comment;
@@ -20,6 +20,7 @@ public class GitLogInfo {
     public GitLogInfo(String cmdRes) {
         if (StringUtils.isBlank(cmdRes)) throw new NullPointerException("cmdRes");
         Matcher matcher = pattern.matcher(cmdRes);
+        if (!matcher.matches()) throw new IllegalArgumentException("Invalid git log output: " + cmdRes);
         commit = matcher.group(commitGroupId);
         comment = matcher.group(commentGroupId);
     }

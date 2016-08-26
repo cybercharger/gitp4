@@ -1,6 +1,7 @@
 package gitp4;
 
 
+import gitp4.git.GitLogInfo;
 import gitp4.p4.P4ChangeInfo;
 import gitp4.p4.P4ChangeListInfo;
 import gitp4.p4.P4FileInfo;
@@ -57,4 +58,11 @@ public class AppTest {
         Assert.assertEquals("        change on p4: revision 6\nABC", clInfo.getFullComments());
     }
 
+    @Test
+    public void testGitLogInfo() {
+        final String cmdRes = "251adbef66f2db998f88c4833ad521877b521955  change on p4: revision 6 [git-p4 depot-paths = //nucleus/SANDBOX/testgitp4/: change = 313596]";
+        GitLogInfo info = new GitLogInfo(cmdRes);
+        Assert.assertEquals("251adbef66f2db998f88c4833ad521877b521955", info.getCommit());
+        Assert.assertEquals("change on p4: revision 6 [git-p4 depot-paths = //nucleus/SANDBOX/testgitp4/: change = 313596]", info.getComment());
+    }
 }
