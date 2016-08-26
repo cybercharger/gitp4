@@ -14,7 +14,7 @@ public class CmdRunner {
     public static <T> T run(Callable<String> getCmd, Function<List<String>, T> resultHandler) throws Exception {
         String cmd = getCmd.call();
         try {
-            logger.info("Running command: " + cmd);
+            logger.debug("Running command: " + cmd);
             List<String> cmdRes = CommandRunner.runCommand(cmd);
             return resultHandler.apply(cmdRes);
         } catch (Exception e) {
