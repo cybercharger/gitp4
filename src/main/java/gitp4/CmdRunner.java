@@ -1,5 +1,6 @@
 package gitp4;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
 
 import java.util.List;
@@ -16,6 +17,7 @@ public class CmdRunner {
         try {
             logger.debug("Running command: " + cmd);
             List<String> cmdRes = CommandRunner.runCommand(cmd);
+            logger.debug("command output: \n" + StringUtils.join(cmdRes, "\n"));
             return resultHandler.apply(cmdRes);
         } catch (Exception e) {
             logger.error(String.format("Error running cmd %s", cmd));

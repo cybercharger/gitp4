@@ -7,7 +7,7 @@ import gitp4.CmdRunner;
  */
 public class GitCheckout {
     private static final String GIT_CHECKOUT_CMD = "git checkout %s";
-    public static void run(String parameters) throws Exception {
+    public static void run(final String parameters) throws Exception {
         if (parameters == null || parameters.isEmpty()) throw new NullPointerException("parameters");
         CmdRunner.run(() -> String.format(GIT_CHECKOUT_CMD, parameters), (cmdRes)-> "");
     }

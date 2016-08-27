@@ -1,5 +1,6 @@
 package gitp4.git;
 
+import gitp4.git.common.Constants;
 import org.apache.commons.lang3.StringUtils;
 
 import java.util.regex.Matcher;
@@ -12,7 +13,8 @@ public class GitLogInfo {
     public static final String CMD_PARAM = "--pretty=oneline";
     private static final String commitGroupId = "commit";
     private static final String commentGroupId = "comments";
-    private static final Pattern pattern = Pattern.compile(String.format("(?<%1$s>[a-f0-9]{40})\\s+(?<%2$s>.+)", commitGroupId, commentGroupId));
+    private static final Pattern pattern = Pattern.compile(String.format(
+            "(?<%1$s>%2$s)\\s+(?<%3$s>.+)", commitGroupId, Constants.FULL_COMMIT_ID_PTRN, commentGroupId));
 
     private final String commit;
     private final String comment;

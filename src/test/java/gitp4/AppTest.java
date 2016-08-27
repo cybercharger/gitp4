@@ -1,6 +1,8 @@
 package gitp4;
 
 
+import gitp4.git.GitChangeType;
+import gitp4.git.GitFileInfo;
 import gitp4.git.GitLogInfo;
 import gitp4.p4.P4ChangeInfo;
 import gitp4.p4.P4ChangeListInfo;
@@ -10,13 +12,7 @@ import junit.framework.Assert;
 import org.apache.commons.lang3.StringUtils;
 import org.junit.Test;
 
-import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
-import java.nio.file.Paths;
 import java.util.Arrays;
-import java.util.List;
-import java.util.Optional;
-import java.util.Properties;
 
 /**
  * Unit test for simple App.
@@ -64,5 +60,32 @@ public class AppTest {
         GitLogInfo info = new GitLogInfo(cmdRes);
         Assert.assertEquals("251adbef66f2db998f88c4833ad521877b521955", info.getCommit());
         Assert.assertEquals("change on p4: revision 6 [git-p4 depot-paths = //nucleus/SANDBOX/testgitp4/: change = 313596]", info.getComment());
+    }
+
+    @Test
+    public void testGitFileInfo() {
+        final String add = "A       src/main/java/gitp4/GitP4Operation.java";
+        GitFileInfo info = new GitFileInfo(add);
+        Assert.assertEquals(GitChangeType.Add, info.getChangeType());
+        Assert.assertEquals("src/main/java/gitp4/GitP4Operation.java", info.getOldFile());
+        Assert.assertEquals("src/main/java/gitp4/GitP4Operation.java", info.getNewFile());
+
+        final String move = "R087\tsrc/main/java/gitp4/p4/P4Change.java\tsrc/main/java/gitp4/p4/P4ChangeInfo.java";
+        info = new GitFileInfo(move);
+        Assert.assertEquals(GitChangeType.Rename, info.getChangeType());
+        Assert.assertEquals("src/main/java/gitp4/p4/P4Change.java", info.getOldFile());
+        Assert.assertEquals("src/main/java/gitp4/p4/P4ChangeInfo.java", info.getNewFile());
+
+        final String modify = "M       src/main/java/gitp4/p4/P4RepositoryInfo.java";
+        info = new GitFileInfo(modify);
+        Assert.assertEquals(GitChangeType.Modify, info.getChangeType());
+        Assert.assertEquals("src/main/java/gitp4/p4/P4RepositoryInfo.java", info.getOldFile());
+        Assert.assertEquals("src/main/java/gitp4/p4/P4RepositoryInfo.java", info.getNewFile());
+
+        final String delete = "D\t src/main/java/gitp4/p4/P4RepositoryInfo.java";
+        info = new GitFileInfo(delete);
+        Assert.assertEquals(GitChangeType.Delete, info.getChangeType());
+        Assert.assertEquals("src/main/java/gitp4/p4/P4RepositoryInfo.java", info.getOldFile());
+        Assert.assertEquals("src/main/java/gitp4/p4/P4RepositoryInfo.java", info.getNewFile());
     }
 }

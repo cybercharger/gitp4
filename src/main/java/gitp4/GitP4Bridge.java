@@ -1,5 +1,7 @@
 package gitp4;
 
+import gitp4.git.GitFileInfo;
+import gitp4.git.GitLogInfo;
 import gitp4.git.cmd.*;
 import gitp4.p4.*;
 import gitp4.p4.cmd.P4Changes;
@@ -118,6 +120,19 @@ class GitP4Bridge {
         config.setProperty(GitP4Config.lastSync, String.format("%d", lastChangelist));
         GitP4Config.save(config, gitP4ConfigFilePath, ".gitp4 config");
         updateGitP4Config();
+    }
+
+    @GitP4Operation(paramNum = 0)
+    private void submit(List<String> parameters) throws Exception {
+        List<GitLogInfo> logInfo = GitLog.run(String.format("%s..HEAD", lastSubmitTag));
+        if (logInfo.isEmpty()) {
+            logger.warn("Nothing to submit to p4 repo");
+            return;
+        }
+        logger.info(String.format("%d commit(s) in total to submit", logInfo.size()));
+        logInfo.forEach(cur -> logger.info(String.format("%s: %s", cur.getCommit(), cur.getComment())));
+        List<GitFileInfo> files = GitLog.getAllChangedFiles(String.format("%s..HEAD", lastSubmitTag));
+        files.forEach(logger::info);
     }
 
     private void gitAddRmChangelist(P4ChangeListInfo clInfo, P4RepositoryInfo p4Repository) throws Exception {

@@ -13,7 +13,7 @@ import java.util.List;
 public class P4Changes {
     private static final String P4_CHANGES_CMD = "p4 changes %s";
 
-    public static List<P4ChangeInfo> run(String parameters) throws Exception {
+    public static List<P4ChangeInfo> run(final String parameters) throws Exception {
         String cmdParams = StringUtils.isBlank(parameters) ? "" : parameters;
 
         return CmdRunner.run(() -> String.format(P4_CHANGES_CMD, cmdParams),
