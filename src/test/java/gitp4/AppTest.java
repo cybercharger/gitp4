@@ -4,15 +4,15 @@ package gitp4;
 import gitp4.git.GitChangeType;
 import gitp4.git.GitFileInfo;
 import gitp4.git.GitLogInfo;
-import gitp4.p4.P4ChangeInfo;
-import gitp4.p4.P4ChangeListInfo;
-import gitp4.p4.P4FileInfo;
-import gitp4.p4.P4Operation;
+import gitp4.p4.*;
 import junit.framework.Assert;
+import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.junit.Test;
 
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Unit test for simple App.
@@ -55,6 +55,17 @@ public class AppTest {
     }
 
     @Test
+    public void testP4FileOpenInfo() {
+        String info = "//nucleus/SANDBOX/catalog/sandboxLoader.sh#1 - edit default change (xtext)";
+        P4FileOpenedInfo foInfo = P4FileOpenedInfo.create(info);
+        Assert.assertEquals("//nucleus/SANDBOX/catalog/sandboxLoader.sh", foInfo.getFile());
+
+        info = "//nucleus/SANDBOX/catalog - file(s) not opened on this client.";
+        foInfo = P4FileOpenedInfo.create(info);
+        Assert.assertNull(foInfo);
+    }
+
+    @Test
     public void testGitLogInfo() {
         final String cmdRes = "251adbef66f2db998f88c4833ad521877b521955  change on p4: revision 6 [git-p4 depot-paths = //nucleus/SANDBOX/testgitp4/: change = 313596]";
         GitLogInfo info = new GitLogInfo(cmdRes);
@@ -87,5 +98,19 @@ public class AppTest {
         Assert.assertEquals(GitChangeType.Delete, info.getChangeType());
         Assert.assertEquals("src/main/java/gitp4/p4/P4RepositoryInfo.java", info.getOldFile());
         Assert.assertEquals("src/main/java/gitp4/p4/P4RepositoryInfo.java", info.getNewFile());
+    }
+
+    @Test
+    public void testSets() {
+        Set<String> a = new HashSet<>();
+        a.add("aaa");
+        a.add("bbb");
+        Set<String> b = new HashSet<>();
+        b.add("bbb");
+        b.add("ccc");
+        Object[] i = b.stream().filter(a::contains).toArray();
+        for(Object o : i) {
+            System.out.println(o);
+        }
     }
 }

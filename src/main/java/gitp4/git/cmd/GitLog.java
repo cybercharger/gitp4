@@ -14,7 +14,8 @@ import java.util.regex.Pattern;
  * Created by chriskang on 8/26/2016.
  */
 public class GitLog {
-    private static String GIT_LOG_CMD = "git log %1$s %1$s";
+    private static final String GIT_LOG_CMD = "git log %1$s %2$s";
+    private static final String GIT_LOG_LATEST_COMMIT = "git log -1 --pretty=oneline";
     private static Pattern pattern = Pattern.compile("[^\\s\\.]+\\.\\.[^\\s\\.]+");
 
     public static List<GitLogInfo> run(final String rangeInfo) throws Exception {
@@ -34,6 +35,17 @@ public class GitLog {
                     List<GitFileInfo> result = new LinkedList<>();
                     cmdRes.forEach(cur -> result.add(0, new GitFileInfo(cur)));
                     return result;
+                });
+    }
+
+    public static GitLogInfo getLatestCommit() throws Exception {
+        return CmdRunner.run(() -> GIT_LOG_LATEST_COMMIT,
+                cmdRes -> {
+                    if (cmdRes == null || cmdRes.size() != 1) {
+                        throw new IllegalStateException(String.format("Error return of running git log -1: %s",
+                                cmdRes == null ? "<NULL>" : StringUtils.join(cmdRes, "\n")));
+                    }
+                    return new GitLogInfo(cmdRes.get(0));
                 });
     }
 

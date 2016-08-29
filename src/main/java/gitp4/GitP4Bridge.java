@@ -6,6 +6,7 @@ import gitp4.git.cmd.*;
 import gitp4.p4.*;
 import gitp4.p4.cmd.P4Changes;
 import gitp4.p4.cmd.P4Describe;
+import gitp4.p4.cmd.P4Opened;
 import gitp4.p4.cmd.P4Print;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
@@ -16,6 +17,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.concurrent.*;
+import java.util.stream.Collectors;
 
 /**
  * Created by chriskang on 8/24/2016.
@@ -124,32 +127,94 @@ class GitP4Bridge {
 
     @GitP4Operation(paramNum = 0)
     private void submit(List<String> parameters) throws Exception {
-        List<GitLogInfo> logInfo = GitLog.run(String.format("%s..HEAD", lastSubmitTag));
+        GitLogInfo latest = GitLog.getLatestCommit();
+        logger.info("Submit commits upto " + latest.getCommit());
+        final String range = String.format("%1$s..%2$s", lastSubmitTag, latest.getCommit());
+        List<GitLogInfo> logInfo = GitLog.run(range);
         if (logInfo.isEmpty()) {
             logger.warn("Nothing to submit to p4 repo");
             return;
         }
         logger.info(String.format("%d commit(s) in total to submit", logInfo.size()));
         logInfo.forEach(cur -> logger.info(String.format("%s: %s", cur.getCommit(), cur.getComment())));
-        List<GitFileInfo> files = GitLog.getAllChangedFiles(String.format("%s..HEAD", lastSubmitTag));
-        files.forEach(logger::info);
+        List<GitFileInfo> files = GitLog.getAllChangedFiles(range);
+        Set<String> affectedFiles = new HashSet<>();
+        for (GitFileInfo info : files) {
+            switch (info.getChangeType()) {
+                case Add:
+                case Delete:
+                case Modify:
+                    affectedFiles.add(info.getOldFile());
+                    break;
+                case Rename:
+                    affectedFiles.add(info.getOldFile());
+                    affectedFiles.add(info.getOldFile());
+                    break;
+                default:
+                    throw new IllegalArgumentException("Unknown git operation type " + info.getChangeType());
+            }
+        }
+        Properties config = GitP4Config.load(gitP4ConfigFilePath);
+        P4RepositoryInfo p4Repo = new P4RepositoryInfo(config.getProperty(GitP4Config.p4Repo));
+
+        logger.info("=== affected files ===");
+        affectedFiles.stream().map(cur -> p4Repo.getPath() + cur).forEach(logger::info);
+
+        List<P4FileOpenedInfo> p4Opened = P4Opened.run(p4Repo.getPathWithSubContents());
+
+        if (p4Opened != null && !p4Opened.isEmpty()) {
+            logger.info("=== p4 opened files ===");
+            p4Opened.forEach(cur -> logger.info(cur.getFile()));
+            Object[] intersection = p4Opened.stream().filter(cur -> {
+                String file = cur.getFile().replace(p4Repo.getPath(), "");
+                return affectedFiles.contains(file);
+            }).toArray();
+            if (intersection != null && intersection.length > 0)
+                logger.warn(String.format("Conflict found, files also opened on p4 repo: \n%s", StringUtils.join(intersection, "\n")));
+            return;
+        }
     }
 
     private void gitAddRmChangelist(P4ChangeListInfo clInfo, P4RepositoryInfo p4Repository) throws Exception {
-        List<String> addFiles = new LinkedList<>();
-        List<String> deleteFiles = new LinkedList<>();
+        ExecutorService executor = Executors.newFixedThreadPool(10);
+        logger.info(String.format("%d file(s) to clone/sync...", clInfo.getFiles().size()));
+        Collection<Callable<Boolean>> callables = new LinkedList<>();
         for (P4FileInfo fileInfo : clInfo.getFiles()) {
-            String p4File = String.format("%1$s#%2$d", fileInfo.getFile(), fileInfo.getRevision());
-            String outputFile = getGitFilePath(fileInfo.getFile(), p4Repository);
-            if (P4Operation.delete == fileInfo.getOperation()) {
-                deleteFiles.add(outputFile);
-            } else {
-                P4Print.run(p4File, outputFile);
-                addFiles.add(outputFile);
-            }
+
+            callables.add(() -> {
+                String p4File = String.format("%1$s#%2$d", fileInfo.getFile(), fileInfo.getRevision());
+                String outputFile = getGitFilePath(fileInfo.getFile(), p4Repository);
+//                logger.info(String.format("%1$s -> %2$s", p4File, outputFile));
+                boolean ret = true;
+                if (P4Operation.delete == fileInfo.getOperation()) {
+                    try {
+                        GitRm.run(outputFile);
+                    } catch (Exception e) {
+                        logger.error("Failed to delete p4 file " + p4File, e);
+                        ret = false;
+                    }
+                } else {
+                    try {
+                        P4Print.run(p4File, outputFile);
+                        GitAdd.run(outputFile);
+                    } catch (Exception e) {
+                        logger.error("Failed to fetch p4 file " + p4File, e);
+                        ret = false;
+                    }
+                }
+                return ret;
+            });
+
         }
-        if (!addFiles.isEmpty()) GitAdd.run(StringUtils.join(addFiles, " "));
-        if (!deleteFiles.isEmpty()) GitRm.run(StringUtils.join(deleteFiles, " "));
+        List<Future<Boolean>> futures = executor.invokeAll(callables);
+        boolean alllGood = true;
+        for (Future<Boolean> f : futures) {
+             alllGood &= f.get();
+        }
+        executor.shutdown();
+        executor.awaitTermination(-1, TimeUnit.DAYS);
+        logger.info("Finished on changelist: " + clInfo.getChangelist());
+        if (!alllGood) throw new IllegalStateException("Failed to clone/sync changelist " + clInfo.getChangelist());
     }
 
     private static String getGitFilePath(String p4FilePath, P4RepositoryInfo p4Repository) {
