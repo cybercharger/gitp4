@@ -4,10 +4,7 @@ import gitp4.git.GitFileInfo;
 import gitp4.git.GitLogInfo;
 import gitp4.git.cmd.*;
 import gitp4.p4.*;
-import gitp4.p4.cmd.P4Changes;
-import gitp4.p4.cmd.P4Describe;
-import gitp4.p4.cmd.P4Opened;
-import gitp4.p4.cmd.P4Print;
+import gitp4.p4.cmd.*;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
 
@@ -173,6 +170,7 @@ class GitP4Bridge {
                 logger.warn(String.format("Conflict found, files also opened on p4 repo: \n%s", StringUtils.join(intersection, "\n")));
             return;
         }
+        String p4cl = P4Change.createEmptyChangeList("Integration from git");
     }
 
     private void gitAddRmChangelist(P4ChangeListInfo clInfo, P4RepositoryInfo p4Repository) throws Exception {
@@ -184,7 +182,7 @@ class GitP4Bridge {
             callables.add(() -> {
                 String p4File = String.format("%1$s#%2$d", fileInfo.getFile(), fileInfo.getRevision());
                 String outputFile = getGitFilePath(fileInfo.getFile(), p4Repository);
-//                logger.info(String.format("%1$s -> %2$s", p4File, outputFile));
+                logger.info(String.format("%1$s -> %2$s", p4File, outputFile));
                 boolean ret = true;
                 if (P4Operation.delete == fileInfo.getOperation()) {
                     try {
@@ -207,14 +205,14 @@ class GitP4Bridge {
 
         }
         List<Future<Boolean>> futures = executor.invokeAll(callables);
-        boolean alllGood = true;
+        boolean allGood = true;
         for (Future<Boolean> f : futures) {
-             alllGood &= f.get();
+             allGood &= f.get();
         }
         executor.shutdown();
         executor.awaitTermination(-1, TimeUnit.DAYS);
         logger.info("Finished on changelist: " + clInfo.getChangelist());
-        if (!alllGood) throw new IllegalStateException("Failed to clone/sync changelist " + clInfo.getChangelist());
+        if (!allGood) throw new IllegalStateException("Failed to clone/sync changelist " + clInfo.getChangelist());
     }
 
     private static String getGitFilePath(String p4FilePath, P4RepositoryInfo p4Repository) {
