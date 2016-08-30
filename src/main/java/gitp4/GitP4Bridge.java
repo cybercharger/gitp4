@@ -1,5 +1,6 @@
 package gitp4;
 
+import gitp4.console.Progress;
 import gitp4.git.GitFileInfo;
 import gitp4.git.GitLogInfo;
 import gitp4.git.cmd.*;
@@ -15,7 +16,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.stream.Collectors;
 
 /**
  * Created by chriskang on 8/24/2016.
@@ -31,6 +31,9 @@ class GitP4Bridge {
     private static final Path gitP4DirPath = Paths.get(".gitp4");
     private static final Path gitDirPath = Paths.get(".git");
     private static final Path gitP4ConfigFilePath = Paths.get(gitP4DirPath.toString(), "config");
+
+    //TODO: move this to properties
+    private static final int MAX_THREADS = 20;
 
     private static class MethodInfo {
         final int paramNum;
@@ -91,13 +94,15 @@ class GitP4Bridge {
             logger.warn("There is nothing to clone from p4 repo, forgot to log in?");
             return;
         }
+
         logger.info(String.format("Totally %d changelist(s) to clone", p4Changes.size()));
 
         P4RepositoryInfo repoInfo = new P4RepositoryInfo(parameters.get(0));
 
-        String lastChangelist = applyP4Changes(p4Changes, repoInfo);
+        createGitP4Directory(repoInfo, p4Changes.get(p4Changes.size() - 1).getChangeList());
+        applyP4Changes(p4Changes, repoInfo);
 
-        createGitP4Directory(repoInfo, lastChangelist);
+
         GitTag.run(lastSubmitTag, "git p4 clone");
         GitCheckout.run(String.format("-b %s", p4IntBranchName));
     }
@@ -117,8 +122,6 @@ class GitP4Bridge {
             return;
         }
         applyP4Changes(p4Changes, repoInfo);
-        config.setProperty(GitP4Config.lastSync, String.format("%d", lastChangelist));
-        GitP4Config.save(config, gitP4ConfigFilePath, ".gitp4 config");
         updateGitP4Config();
     }
 
@@ -174,15 +177,16 @@ class GitP4Bridge {
     }
 
     private void gitAddRmChangelist(P4ChangeListInfo clInfo, P4RepositoryInfo p4Repository) throws Exception {
-        ExecutorService executor = Executors.newFixedThreadPool(10);
+        ExecutorService executor = Executors.newFixedThreadPool(MAX_THREADS);
         logger.info(String.format("%d file(s) to clone/sync...", clInfo.getFiles().size()));
         Collection<Callable<Boolean>> callables = new LinkedList<>();
-        for (P4FileInfo fileInfo : clInfo.getFiles()) {
+        final Progress progress = new Progress(clInfo.getFiles().size());
+        progress.show();
 
+        for (P4FileInfo fileInfo : clInfo.getFiles()) {
             callables.add(() -> {
                 String p4File = String.format("%1$s#%2$d", fileInfo.getFile(), fileInfo.getRevision());
                 String outputFile = getGitFilePath(fileInfo.getFile(), p4Repository);
-                logger.info(String.format("%1$s -> %2$s", p4File, outputFile));
                 boolean ret = true;
                 if (P4Operation.delete == fileInfo.getOperation()) {
                     try {
@@ -200,15 +204,19 @@ class GitP4Bridge {
                         ret = false;
                     }
                 }
+                progress.progress(1);
                 return ret;
             });
-
         }
+
         List<Future<Boolean>> futures = executor.invokeAll(callables);
         boolean allGood = true;
         for (Future<Boolean> f : futures) {
-             allGood &= f.get();
+            allGood &= f.get();
         }
+
+        progress.done();
+
         executor.shutdown();
         executor.awaitTermination(-1, TimeUnit.DAYS);
         logger.info("Finished on changelist: " + clInfo.getChangelist());
@@ -225,18 +233,18 @@ class GitP4Bridge {
         GitCommit.run(comments);
     }
 
-    private String applyP4Changes(List<P4ChangeInfo> p4Changes, P4RepositoryInfo repoInfo) throws Exception {
-        String lastChangelist = "0";
+    private void applyP4Changes(List<P4ChangeInfo> p4Changes, P4RepositoryInfo repoInfo) throws Exception {
         int i = 1;
         int total = p4Changes.size();
+        Properties config = GitP4Config.load(gitP4ConfigFilePath);
         for (P4ChangeInfo change : p4Changes) {
             logger.info(String.format("[%1$d/%2$d]: %3$s", i++, total, change.toString()));
             P4ChangeListInfo clInfo = P4Describe.run(change.getChangeList());
             gitAddRmChangelist(clInfo, repoInfo);
             gitCommitChangelist(clInfo, repoInfo);
-            lastChangelist = clInfo.getChangelist();
+            config.setProperty(GitP4Config.lastSync, clInfo.getChangelist());
+            GitP4Config.save(config, gitP4ConfigFilePath, "apply p4 changes");
         }
-        return lastChangelist;
     }
 
     private void createGitP4Directory(P4RepositoryInfo p4RepositoryInfo, String lastChangelist) throws Exception {

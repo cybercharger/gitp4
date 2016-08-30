@@ -1,6 +1,7 @@
 package gitp4;
 
 
+import gitp4.console.Progress;
 import gitp4.git.GitChangeType;
 import gitp4.git.GitFileInfo;
 import gitp4.git.GitLogInfo;
@@ -101,16 +102,14 @@ public class AppTest {
     }
 
     @Test
-    public void testSets() {
-        Set<String> a = new HashSet<>();
-        a.add("aaa");
-        a.add("bbb");
-        Set<String> b = new HashSet<>();
-        b.add("bbb");
-        b.add("ccc");
-        Object[] i = b.stream().filter(a::contains).toArray();
-        for(Object o : i) {
-            System.out.println(o);
+    public void testProgress() throws InterruptedException {
+        final int total = 15;
+        Progress p = new Progress(total);
+        p.show();
+        for (int i = 0; i < total; ++i) {
+            Thread.sleep(500);
+            p.progress(1);
         }
+        p.done();
     }
 }
