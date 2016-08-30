@@ -6,5 +6,7 @@ package gitp4.p4;
 public enum P4Operation {
     add,
     edit,
-    delete
+    delete,
+    integrate,
+    branch
 }

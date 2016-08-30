@@ -16,6 +16,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.function.Consumer;
 
 /**
  * Created by chriskang on 8/24/2016.
@@ -33,7 +34,7 @@ class GitP4Bridge {
     private static final Path gitP4ConfigFilePath = Paths.get(gitP4DirPath.toString(), "config");
 
     //TODO: move this to properties
-    private static final int MAX_THREADS = 20;
+    private static final int MAX_THREADS = 10;
 
     private static class MethodInfo {
         final int paramNum;
@@ -178,6 +179,8 @@ class GitP4Bridge {
 
     private void gitAddRmChangelist(P4ChangeListInfo clInfo, P4RepositoryInfo p4Repository) throws Exception {
         ExecutorService executor = Executors.newFixedThreadPool(MAX_THREADS);
+        List<String> addFiles = new ArrayList<>();
+        List<String> removeFiles = new ArrayList<>();
         logger.info(String.format("%d file(s) to clone/sync...", clInfo.getFiles().size()));
         Collection<Callable<Boolean>> callables = new LinkedList<>();
         final Progress progress = new Progress(clInfo.getFiles().size());
@@ -190,7 +193,8 @@ class GitP4Bridge {
                 boolean ret = true;
                 if (P4Operation.delete == fileInfo.getOperation()) {
                     try {
-                        GitRm.run(outputFile);
+                        removeFiles.add(outputFile);
+//                        GitRm.run(outputFile);
                     } catch (Exception e) {
                         logger.error("Failed to delete p4 file " + p4File, e);
                         ret = false;
@@ -198,7 +202,8 @@ class GitP4Bridge {
                 } else {
                     try {
                         P4Print.run(p4File, outputFile);
-                        GitAdd.run(outputFile);
+                        addFiles.add(outputFile);
+//                        GitAdd.run(outputFile);
                     } catch (Exception e) {
                         logger.error("Failed to fetch p4 file " + p4File, e);
                         ret = false;
@@ -215,12 +220,45 @@ class GitP4Bridge {
             allGood &= f.get();
         }
 
-        progress.done();
-
         executor.shutdown();
-        executor.awaitTermination(-1, TimeUnit.DAYS);
+        executor.awaitTermination(-1, TimeUnit.MILLISECONDS);
         logger.info("Finished on changelist: " + clInfo.getChangelist());
         if (!allGood) throw new IllegalStateException("Failed to clone/sync changelist " + clInfo.getChangelist());
+
+        pagedAction(addFiles, 100, page -> {
+            try {
+                GitAdd.run(StringUtils.join(page, " "));
+            } catch (Exception e) {
+                logger.error("Failed to add files", e);
+            }
+        });
+
+        pagedAction(removeFiles, 100, page -> {
+            try {
+                GitRm.run(StringUtils.join(page, " "));
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
+
+    }
+
+    private static <T> void pagedAction(List<T> data, final int pageSize, Consumer<List<T>> action) throws Exception {
+
+        int page = 0;
+        for (; page < data.size() / pageSize; ++page) {
+            List<T> section = new ArrayList<>(pageSize);
+            for (int i = 0; i < pageSize; ++i) {
+                section.add(data.get(i + page * pageSize));
+            }
+            action.accept(section);
+        }
+
+        List<T> section = new ArrayList<>();
+        for (int i = pageSize * page; i < data.size(); ++i) {
+            section.add(data.get(i));
+        }
+        action.accept(section);
     }
 
     private static String getGitFilePath(String p4FilePath, P4RepositoryInfo p4Repository) {

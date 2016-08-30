@@ -18,8 +18,9 @@ public class Progress {
     public void show() {
         synchronized (this) {
             System.out.print(getBackspaces(lastLen));
-            double percentage = ((double) current) / total;
-            String progress = String.format(FORMAT, (int) (percentage * 100 + 0.5), current, total);
+            int percentage = (int) ((((double) current) / total) * 100 + 0.5);
+            percentage = percentage == 100 && current < total ? 99 : percentage;
+            String progress = String.format(FORMAT, percentage, current, total);
             lastLen = progress.length();
             System.out.print(progress);
         }
@@ -30,10 +31,11 @@ public class Progress {
             current += progress;
             current = current > total ? total : (current < 0) ? 0 : current;
             show();
+            if (current == total) done();
         }
     }
 
-    public void done() {
+    private void done() {
         synchronized (this) {
             System.out.print(getBackspaces(lastLen));
             System.out.println();

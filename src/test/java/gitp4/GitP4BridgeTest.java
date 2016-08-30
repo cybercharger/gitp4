@@ -1,5 +1,6 @@
 package gitp4;
 
+import gitp4.console.Progress;
 import junit.framework.Assert;
 import org.junit.After;
 import org.junit.Before;
@@ -48,4 +49,23 @@ public class GitP4BridgeTest {
         System.out.print(a.isPresent() ? a.get() : new Integer(0));
         Assert.assertEquals("1,10,10", myOut.toString());
     }
+//
+//    @Test
+//    public void testProgress() {
+//        Progress p = new Progress(1000);
+//        p.show();
+//        Assert.assertEquals("0% [0/1000]", myOut.toString());
+//
+//        p.progress(100);
+//        Assert.assertEquals("10% [100/1000]", myOut.toString());
+//
+//        p.progress(500);
+//        Assert.assertEquals("50% [500/1000]", myOut.toString());
+//
+//        p.progress(999);
+//        Assert.assertEquals("0% [0/1000]", myOut.toString());
+//
+//        p.progress(1000);
+//        Assert.assertEquals("", myOut.toString());
+//    }
 }

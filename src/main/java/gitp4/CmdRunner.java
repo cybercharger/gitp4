@@ -20,7 +20,7 @@ public class CmdRunner {
             logger.debug("command output: \n" + StringUtils.join(cmdRes, "\n"));
             return resultHandler.apply(cmdRes);
         } catch (Exception e) {
-            logger.error(String.format("Error running cmd %s", cmd));
+            logger.error(String.format("Error running cmd %s", cmd), e);
             throw e;
         }
     }

@@ -9,7 +9,7 @@ import org.apache.commons.lang3.StringUtils;
  * Created by chriskang on 8/23/2016.
  */
 public class P4Describe {
-    public static final String P4_CHANGES_CMD = "p4 describe -s %s";
+    public static final String P4_CHANGES_CMD = "p4 describe -s %s & exit 1";
 
     public static P4ChangeListInfo run(final String parameters) throws Exception {
         final String cmdParams = StringUtils.isBlank(parameters) ? "" : parameters;

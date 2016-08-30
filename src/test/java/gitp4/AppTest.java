@@ -11,9 +11,11 @@ import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.junit.Test;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Unit test for simple App.
@@ -31,11 +33,17 @@ public class AppTest {
 
     @Test
     public void testP4FileInfo() {
-        final String info = "... //nucleus/SANDBOX/testgitp4/createdOnGit.txt#6 edit";
+        String info = "... //nucleus/SANDBOX/testgitp4/createdOnGit.txt#6 edit";
         P4FileInfo fileInfo = new P4FileInfo(info);
         Assert.assertEquals("//nucleus/SANDBOX/testgitp4/createdOnGit.txt", fileInfo.getFile());
         Assert.assertEquals(6, fileInfo.getRevision());
         Assert.assertEquals(P4Operation.edit, fileInfo.getOperation());
+
+        info = "... //nucleus/SANDBOX/catalog/catalog.ui/src/main/java/com/ea/eadp/catalog/ui/CatalogUIException.java#5 move/delete";
+        fileInfo = new P4FileInfo(info);
+        Assert.assertEquals("//nucleus/SANDBOX/catalog/catalog.ui/src/main/java/com/ea/eadp/catalog/ui/CatalogUIException.java", fileInfo.getFile());
+        Assert.assertEquals(5, fileInfo.getRevision());
+        Assert.assertEquals(P4Operation.delete, fileInfo.getOperation());
     }
 
     @Test
@@ -99,17 +107,5 @@ public class AppTest {
         Assert.assertEquals(GitChangeType.Delete, info.getChangeType());
         Assert.assertEquals("src/main/java/gitp4/p4/P4RepositoryInfo.java", info.getOldFile());
         Assert.assertEquals("src/main/java/gitp4/p4/P4RepositoryInfo.java", info.getNewFile());
-    }
-
-    @Test
-    public void testProgress() throws InterruptedException {
-        final int total = 15;
-        Progress p = new Progress(total);
-        p.show();
-        for (int i = 0; i < total; ++i) {
-            Thread.sleep(500);
-            p.progress(1);
-        }
-        p.done();
     }
 }
