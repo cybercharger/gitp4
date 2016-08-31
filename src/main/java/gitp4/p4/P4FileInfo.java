@@ -14,7 +14,7 @@ public class P4FileInfo {
     private static final String operationGroupId = "operation";
 
     private static final String patternString = String.format(
-            ".+\\s(?<%1$s>//.+)#(?<%2$s>\\d+) (?<%3$s>\\S+)",
+            "\\.{3}+\\s(?<%1$s>//.+)#(?<%2$s>\\d+) (?<%3$s>\\S+)",
             fileGroupId, revisionGroupId, operationGroupId);
     private static final Pattern pattern = Pattern.compile(patternString);
 
@@ -24,17 +24,21 @@ public class P4FileInfo {
     private final int revision;
     private final P4Operation operation;
 
-    public static boolean isValid(String infoString) {
-        return pattern.matcher(infoString).matches();
+    public static P4FileInfo create(String infoString, String p4Depo) {
+        if (StringUtils.isBlank(infoString) || StringUtils.isBlank(p4Depo)) return null;
+        Matcher matcher = pattern.matcher(infoString);
+        if (!matcher.matches()) return null;
+        String file = matcher.group(fileGroupId);
+        if (!file.startsWith(p4Depo)) return null;
+        int revision = Integer.parseInt(matcher.group(revisionGroupId));
+        P4Operation operation = parseP4Operation(matcher.group(operationGroupId));
+        return new P4FileInfo(file, revision, operation);
     }
 
-    public P4FileInfo(String infoString) {
-        if (StringUtils.isBlank(infoString)) throw new NullPointerException("infoString");
-        Matcher matcher = pattern.matcher(infoString);
-        if (!matcher.matches()) throw new IllegalArgumentException(String.format("invalid p4 file info %s", infoString));
-        file = matcher.group(fileGroupId);
-        revision = Integer.parseInt(matcher.group(revisionGroupId));
-        operation = parseP4Operation(matcher.group(operationGroupId));
+    private P4FileInfo(String file, int revision, P4Operation operation) {
+        this.file = file;
+        this.revision = revision;
+        this.operation = operation;
     }
 
     public String getFile() {

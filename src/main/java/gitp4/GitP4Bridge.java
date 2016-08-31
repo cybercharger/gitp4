@@ -103,6 +103,8 @@ class GitP4Bridge {
         createGitP4Directory(repoInfo, p4Changes.get(p4Changes.size() - 1).getChangeList());
         applyP4Changes(p4Changes, repoInfo);
 
+        GitAdd.run(gitP4ConfigFilePath.toString());
+        GitCommit.run("update git p4 config");
 
         GitTag.run(lastSubmitTag, "git p4 clone");
         GitCheckout.run(String.format("-b %s", p4IntBranchName));
@@ -188,13 +190,12 @@ class GitP4Bridge {
 
         for (P4FileInfo fileInfo : clInfo.getFiles()) {
             callables.add(() -> {
-                String p4File = String.format("%1$s#%2$d", fileInfo.getFile(), fileInfo.getRevision());
+                String p4File = String.format("\"%1$s#%2$d\"", fileInfo.getFile(), fileInfo.getRevision());
                 String outputFile = getGitFilePath(fileInfo.getFile(), p4Repository);
                 boolean ret = true;
                 if (P4Operation.delete == fileInfo.getOperation()) {
                     try {
                         removeFiles.add(outputFile);
-//                        GitRm.run(outputFile);
                     } catch (Exception e) {
                         logger.error("Failed to delete p4 file " + p4File, e);
                         ret = false;
@@ -203,7 +204,6 @@ class GitP4Bridge {
                     try {
                         P4Print.run(p4File, outputFile);
                         addFiles.add(outputFile);
-//                        GitAdd.run(outputFile);
                     } catch (Exception e) {
                         logger.error("Failed to fetch p4 file " + p4File, e);
                         ret = false;
@@ -222,29 +222,35 @@ class GitP4Bridge {
 
         executor.shutdown();
         executor.awaitTermination(-1, TimeUnit.MILLISECONDS);
-        logger.info("Finished on changelist: " + clInfo.getChangelist());
+        logger.info("Finished cloning changelist: " + clInfo.getChangelist());
         if (!allGood) throw new IllegalStateException("Failed to clone/sync changelist " + clInfo.getChangelist());
 
-        pagedAction(addFiles, 100, page -> {
-            try {
-                GitAdd.run(StringUtils.join(page, " "));
-            } catch (Exception e) {
-                logger.error("Failed to add files", e);
-            }
-        });
+        if (!addFiles.isEmpty()) {
+            logger.info("Git add...");
+            pagedAction(addFiles, 20, page -> {
+                try {
+                    GitAdd.run(StringUtils.join(page, " "));
+                } catch (Exception e) {
+                    logger.error("Failed to add files", e);
+                }
+            });
+        }
 
-        pagedAction(removeFiles, 100, page -> {
-            try {
-                GitRm.run(StringUtils.join(page, " "));
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        });
+        if (!removeFiles.isEmpty()) {
+            logger.info("Git rm...");
+            pagedAction(removeFiles, 20, page -> {
+                try {
+                    GitRm.run(StringUtils.join(page, " "));
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            });
+        }
 
     }
 
     private static <T> void pagedAction(List<T> data, final int pageSize, Consumer<List<T>> action) throws Exception {
-
+        Progress p = new Progress(data.size());
         int page = 0;
         for (; page < data.size() / pageSize; ++page) {
             List<T> section = new ArrayList<>(pageSize);
@@ -252,13 +258,17 @@ class GitP4Bridge {
                 section.add(data.get(i + page * pageSize));
             }
             action.accept(section);
+            p.progress(pageSize);
         }
 
         List<T> section = new ArrayList<>();
         for (int i = pageSize * page; i < data.size(); ++i) {
             section.add(data.get(i));
         }
-        action.accept(section);
+        if (!section.isEmpty()) {
+            action.accept(section);
+            p.progress(data.size() - page * pageSize);
+        }
     }
 
     private static String getGitFilePath(String p4FilePath, P4RepositoryInfo p4Repository) {
@@ -277,7 +287,7 @@ class GitP4Bridge {
         Properties config = GitP4Config.load(gitP4ConfigFilePath);
         for (P4ChangeInfo change : p4Changes) {
             logger.info(String.format("[%1$d/%2$d]: %3$s", i++, total, change.toString()));
-            P4ChangeListInfo clInfo = P4Describe.run(change.getChangeList());
+            P4ChangeListInfo clInfo = P4Describe.run(change.getChangeList(), repoInfo.getPath());
             gitAddRmChangelist(clInfo, repoInfo);
             gitCommitChangelist(clInfo, repoInfo);
             config.setProperty(GitP4Config.lastSync, clInfo.getChangelist());

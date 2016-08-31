@@ -30,16 +30,23 @@ public class P4ChangeListInfo {
     private final P4UserInfo p4UserInfo;
     private final String fullComments;
 
-    public P4ChangeListInfo(List<String> cmdRes) {
+    public P4ChangeListInfo(List<String> cmdRes, String p4Depo) {
         if (cmdRes == null || cmdRes.isEmpty()) throw new IllegalArgumentException("cmdRes is null or empty");
+        if (StringUtils.isBlank(p4Depo)) throw new NullPointerException("p4Depo");
         Matcher matcher = changePattern.matcher(cmdRes.get(0));
-        if (!matcher.matches()) throw new IllegalArgumentException("Cannot parse changelist info from " + cmdRes.get(0));
+        if (!matcher.matches()) {
+            throw new IllegalArgumentException("Cannot parse changelist info from " + cmdRes.get(0));
+        }
         changelist = matcher.group(changelistGroupId);
         timestamp = matcher.group(dateGroupId);
         p4UserInfo = new P4UserInfo(matcher.group(userGroupId));
-        files = cmdRes.stream().filter(P4FileInfo::isValid).map(P4FileInfo::new).collect(Collectors.toCollection(LinkedList::new));
+        files = cmdRes.stream()
+                .map(cur -> P4FileInfo.create(cur, p4Depo))
+                .filter(cur -> cur != null)
+                .collect(Collectors.toCollection(LinkedList::new));
+
         List<String> comments = new LinkedList<>();
-        for(int i = commentStartLine; i < cmdRes.size(); ++i) {
+        for (int i = commentStartLine; i < cmdRes.size(); ++i) {
             String line = cmdRes.get(i);
             if (line.contains(commentEndTag)) break;
             if (StringUtils.isBlank(line)) continue;
