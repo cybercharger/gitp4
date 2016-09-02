@@ -9,7 +9,6 @@ import gitp4.p4.cmd.*;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
 
-import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
@@ -18,7 +17,6 @@ import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.function.Consumer;
 
 /**
  * Created by chriskang on 8/24/2016.
@@ -26,7 +24,7 @@ import java.util.function.Consumer;
 class GitP4Bridge {
     private static Logger logger = Logger.getLogger(GitP4Bridge.class);
 
-    private static final String commitCommentsTemplate = "%1$s [git-p4 depot-paths = %2$s: change = %3$s]";
+    private static final String commitCommentsTemplate = "%1$s [git-p4 depot-paths = %2$s change = %3$s]";
     private static final String GIT_P4_SYNC_CMD_FMT = "%1$s...@%2$d,#head";
     private static final String lastSubmitTag = "last_p4_submit";
     private static final String p4IntBranchName = "p4-integ";
@@ -102,9 +100,8 @@ class GitP4Bridge {
 
         P4RepositoryInfo repoInfo = new P4RepositoryInfo(parameters.get(0));
 
-        createGitP4Directory(repoInfo, p4Changes.get(p4Changes.size() - 1).getChangeList());
-//        applyP4Changes(p4Changes, repoInfo);
-        applyP4Changes2(p4Changes, repoInfo);
+        createGitP4Directory(repoInfo, "0");
+        applyP4Changes(p4Changes, repoInfo);
 
         GitAdd.run(gitP4ConfigFilePath.toString());
         GitCommit.run("update git p4 config");
@@ -182,58 +179,11 @@ class GitP4Bridge {
         String p4cl = P4Change.createEmptyChangeList("Integration from git");
     }
 
-    private void gitAddRmChangelist(P4ChangeListInfo clInfo, P4RepositoryInfo p4Repository) throws Exception {
-        ExecutorService executor = Executors.newFixedThreadPool(MAX_THREADS);
-        List<String> addFiles = new ArrayList<>();
-        List<String> removeFiles = new ArrayList<>();
-        logger.info(String.format("%d file(s) to clone/sync...", clInfo.getFiles().size()));
-        Collection<Callable<Boolean>> callables = new LinkedList<>();
-        final Progress progress = new Progress(clInfo.getFiles().size());
-        progress.show();
-
-        for (P4FileInfo fileInfo : clInfo.getFiles()) {
-            callables.add(() -> {
-                String p4File = String.format("\"%1$s#%2$d\"", fileInfo.getFile(), fileInfo.getRevision());
-                String outputFile = getGitFilePath(fileInfo.getFile(), p4Repository);
-                boolean ret = true;
-                if (P4Operation.delete == fileInfo.getOperation()) {
-                    try {
-                        removeFiles.add(outputFile);
-                    } catch (Exception e) {
-                        logger.error("Failed to delete p4 file " + p4File, e);
-                        ret = false;
-                    }
-                } else {
-                    try {
-                        P4Print.run(p4File, outputFile);
-                        addFiles.add(outputFile);
-                    } catch (Exception e) {
-                        logger.error("Failed to fetch p4 file " + p4File, e);
-                        ret = false;
-                    }
-                }
-                progress.progress(1);
-                return ret;
-            });
-        }
-
-        List<Future<Boolean>> futures = executor.invokeAll(callables);
-        boolean allGood = true;
-        for (Future<Boolean> f : futures) {
-            allGood &= f.get();
-        }
-
-        executor.shutdown();
-        executor.awaitTermination(-1, TimeUnit.MILLISECONDS);
-        logger.info("Finished cloning changelist: " + clInfo.getChangelist());
-        if (!allGood) throw new IllegalStateException("Failed to clone/sync changelist " + clInfo.getChangelist());
-        gitAddRmFiles(addFiles, removeFiles);
-    }
-
     private void gitAddRmFiles(List<String> addFiles, List<String> removeFiles) throws Exception {
+        final int pageSize = 20;
         if (!addFiles.isEmpty()) {
             logger.info("Git add...");
-            pagedAction(addFiles, 20, page -> {
+            Utils.pagedAction(addFiles, pageSize, page -> {
                 try {
                     GitAdd.run(StringUtils.join(page, " "));
                 } catch (Exception e) {
@@ -244,7 +194,7 @@ class GitP4Bridge {
 
         if (!removeFiles.isEmpty()) {
             logger.info("Git rm...");
-            pagedAction(removeFiles, 20, page -> {
+            Utils.pagedAction(removeFiles, pageSize, page -> {
                 try {
                     GitRm.run(StringUtils.join(page, " "));
                 } catch (Exception e) {
@@ -255,97 +205,37 @@ class GitP4Bridge {
 
     }
 
-    private static <T> void pagedAction(List<T> data, final int pageSize, Consumer<List<T>> action) throws Exception {
-        Progress p = new Progress(data.size());
-        int page = 0;
-        for (; page < data.size() / pageSize; ++page) {
-            List<T> section = new ArrayList<>(pageSize);
-            for (int i = 0; i < pageSize; ++i) {
-                section.add(data.get(i + page * pageSize));
-            }
-            action.accept(section);
-            p.progress(pageSize);
-        }
-
-        List<T> section = new ArrayList<>();
-        for (int i = pageSize * page; i < data.size(); ++i) {
-            section.add(data.get(i));
-        }
-        if (!section.isEmpty()) {
-            action.accept(section);
-            p.progress(data.size() - page * pageSize);
-        }
-    }
-
-    private static String getGitFilePath(String p4FilePath, P4RepositoryInfo p4Repository) {
-        return String.format("\"%s\"", p4FilePath.replace(p4Repository.getPath(), "./"));
-    }
-
-    private void gitCommitChangelist(P4ChangeListInfo clInfo, P4RepositoryInfo p4Repository) throws Exception {
-        String comments = String.format(commitCommentsTemplate,
-                clInfo.getFullComments(), p4Repository.getPath(), clInfo.getChangelist());
-        GitCommit.run(comments);
-    }
-
     private void applyP4Changes(List<P4ChangeInfo> p4Changes, P4RepositoryInfo repoInfo) throws Exception {
         int i = 1;
         int total = p4Changes.size();
-        Properties config = GitP4Config.load(gitP4ConfigFilePath);
         for (P4ChangeInfo change : p4Changes) {
             logger.info(String.format("[%1$d/%2$d]: %3$s", i++, total, change.toString()));
-            P4ChangeListInfo clInfo = P4Describe.run(change.getChangeList(), repoInfo.getPath());
-            gitAddRmChangelist(clInfo, repoInfo);
-            gitCommitChangelist(clInfo, repoInfo);
-            config.setProperty(GitP4Config.lastSync, clInfo.getChangelist());
-            GitP4Config.save(config, gitP4ConfigFilePath, "apply p4 changes");
-        }
-    }
-
-    private void applyP4Changes2(List<P4ChangeInfo> p4Changes, P4RepositoryInfo repoInfo) throws Exception {
-        int i = 1;
-        int total = p4Changes.size();
-        for (P4ChangeInfo change : p4Changes) {
-            logger.info(String.format("[%1$d/%2$d]: %3$s", i++, total, change.toString()));
-//            P4Sync.forceSyncTo(repoInfo, change.getChangeList());
+            logger.info("syncing p4 client to change list " + change.getChangeList());
+            P4Sync.forceSyncTo(repoInfo, change.getChangeList());
             //sleep 1 second to wait for p4 sync
-//            Thread.sleep(1000);
-            copySingleChangelist(change, repoInfo);
+            Thread.sleep(1000);
+            copySingleChangelistAndGitCommit(change, repoInfo);
         }
     }
 
-    //File.mkdirs will treat file starting with . as dir, that's why we need this
-    private void createDirRecursively(String filePath, char delimiter) throws IOException {
-        String[] dirs = StringUtils.split(filePath, "" + delimiter);
-        String dirStr = dirs[0];
-        // the last section is file name itself
-        for (int i = 1; i < dirs.length - 1; ++i) {
-            dirStr = "".equals(dirStr) ? dirs[i] : String.format("%1$s%2$c%3$s", dirStr, delimiter, dirs[i]);
-            Path wanted = Paths.get(dirStr);
-            if (!Files.exists(wanted)) {
-                Files.createDirectory(wanted);
-                logger.debug("dirs created: " + dirStr);
-            }
-        }
-    }
-
-    private String copySingleChangelist(P4ChangeInfo p4Change, P4RepositoryInfo repoInfo) throws Exception {
+    private String copySingleChangelistAndGitCommit(P4ChangeInfo p4Change, P4RepositoryInfo repoInfo) throws Exception {
         P4FileStatInfo info = P4Fstat.getChangelistStats(p4Change.getChangeList(), repoInfo);
-        logger.info(String.format("%d files to copy", info.getFiles().size()));
+        logger.info(String.format("%d file(s) to copy", info.getFiles().size()));
         List<String> addFiles = new LinkedList<>();
         List<String> removeFiles = new LinkedList<>();
         List<Callable<Boolean>> theCallable = new LinkedList<>();
         final Progress p = new Progress(info.getFiles().size());
         p.show();
         for (P4FileInfoEx file : info.getFiles()) {
-            p.progress(1);
             final String target = file.getDepotFile().replace(repoInfo.getPath(), "./");
             final String targetWithQuotes = String.format("\"%s\"", target);
             if (P4Operation.delete == file.getOperation()) {
                 removeFiles.add(targetWithQuotes);
+                p.progress(1);
                 continue;
             }
 
-            createDirRecursively(target, '/');
+            Utils.createDirRecursively(target, '/');
 
             addFiles.add(targetWithQuotes);
             theCallable.add(() -> {
@@ -356,14 +246,20 @@ class GitP4Bridge {
                     return true;
                 } catch (Exception e) {
                     logger.error(String.format("Failed to copy file %1$s -> %2$s", file.getClientFile(), target), e);
+                    return false;
+                } finally {
+                    p.progress(1);
                 }
-                return false;
+
             });
         }
-        Utils.runConcurrentlyAndAggregate(MAX_THREADS, theCallable, x -> p.progress(1));
+        if (!theCallable.isEmpty()) {
+            Utils.runConcurrentlyAndAggregate(MAX_THREADS, theCallable);
+        }
 
 
         gitAddRmFiles(addFiles, removeFiles);
+        updateLastSyncAndGitAdd(p4Change.getChangeList());
         String comments = String.format(commitCommentsTemplate, info.getDescription(), repoInfo.getPath(), p4Change.getChangeList());
         GitCommit.run(comments);
         return info.getDescription();
@@ -384,5 +280,12 @@ class GitP4Bridge {
     private void updateGitP4Config() throws Exception {
         GitAdd.run(gitP4ConfigFilePath.toString());
         GitCommit.run("commit .gitp4");
+    }
+
+    private void updateLastSyncAndGitAdd(String lastSync) throws Exception {
+        Properties config = GitP4Config.load(gitP4ConfigFilePath);
+        config.setProperty(GitP4Config.lastSync, lastSync);
+        GitP4Config.save(config, gitP4ConfigFilePath, "");
+        GitAdd.run(gitP4ConfigFilePath.toString());
     }
 }

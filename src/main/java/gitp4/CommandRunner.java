@@ -35,6 +35,7 @@ public class CommandRunner {
             for (String err = errorReader.readLine(); err != null; err = reader.readLine()) {
                 error.add(err);
             }
+            if (!p.isAlive()) break;
         }
 
         int j = 0;
@@ -46,7 +47,7 @@ public class CommandRunner {
         }
         logger.debug(String.format("read buffer (%1$d + %2$d) times", i, j));
         if (!error.isEmpty()) {
-            logger.warn(String.format("[Error or Warning] of running %1$s\n%2$s", cmd, StringUtils.join(error, "\n")));
+            logger.debug(String.format("[Error or Warning] of running %1$s\n%2$s", cmd, StringUtils.join(error, "\n")));
         }
         return result;
     }
