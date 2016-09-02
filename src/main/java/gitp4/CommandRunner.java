@@ -29,6 +29,7 @@ public class CommandRunner {
         //Read cmd output every BUFFER_READ_INTERVAL milliseconds to prevent the process hung due to the buffer full
         int i = 0;
         for (; !p.waitFor(BUFFER_READ_INTERVAL, TimeUnit.MILLISECONDS); ++i) {
+            logger.debug("timeout for " + p.toString());
             for (String res = reader.readLine(); res != null; res = reader.readLine()) {
                 result.add(res);
             }
