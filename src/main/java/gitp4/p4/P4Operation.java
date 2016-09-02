@@ -8,5 +8,12 @@ public enum P4Operation {
     edit,
     delete,
     integrate,
-    branch
+    branch;
+
+    private static final String MOVE_SLASH = "move/";
+
+    public static P4Operation parse(String s) {
+        s = s.startsWith(MOVE_SLASH) ? s.substring(MOVE_SLASH.length()) : s;
+        return P4Operation.valueOf(s);
+    }
 }

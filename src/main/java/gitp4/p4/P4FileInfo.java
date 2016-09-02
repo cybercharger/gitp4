@@ -18,8 +18,6 @@ public class P4FileInfo {
             fileGroupId, revisionGroupId, operationGroupId);
     private static final Pattern pattern = Pattern.compile(patternString);
 
-    private static final String MOVE_SLASH = "move/";
-
     private final String file;
     private final int revision;
     private final P4Operation operation;
@@ -31,7 +29,7 @@ public class P4FileInfo {
         String file = matcher.group(fileGroupId);
         if (!file.startsWith(p4Depo)) return null;
         int revision = Integer.parseInt(matcher.group(revisionGroupId));
-        P4Operation operation = parseP4Operation(matcher.group(operationGroupId));
+        P4Operation operation = P4Operation.parse(matcher.group(operationGroupId));
         return new P4FileInfo(file, revision, operation);
     }
 
@@ -57,9 +55,5 @@ public class P4FileInfo {
     public String toString() {
         return String.format("%1$s, rev: %2$d, op: %3$s", file, revision, operation);
     }
-
-    private static P4Operation parseP4Operation(String s) {
-        s = s.startsWith(MOVE_SLASH) ? s.substring(MOVE_SLASH.length()) : s;
-        return P4Operation.valueOf(s);
-    }
 }
+

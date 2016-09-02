@@ -17,7 +17,7 @@ public class P4RepositoryInfo {
         int lastSlash = path.lastIndexOf(SLASH);
         // [begin, end), last slash is needed in this case
         this.path = path.substring(0, lastSlash + 1);
-        this.pathWithSubContents = path + SUB_CONTENTS;
+        this.pathWithSubContents = this.path + SUB_CONTENTS;
     }
 
     public String getPath() {

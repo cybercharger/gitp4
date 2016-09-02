@@ -1,6 +1,6 @@
 package gitp4.git;
 
-import gitp4.git.common.Utils;
+import gitp4.Utils;
 
 import java.util.List;
 

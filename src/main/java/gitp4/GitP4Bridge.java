@@ -9,11 +9,13 @@ import gitp4.p4.cmd.*;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
 
+import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Consumer;
@@ -101,7 +103,8 @@ class GitP4Bridge {
         P4RepositoryInfo repoInfo = new P4RepositoryInfo(parameters.get(0));
 
         createGitP4Directory(repoInfo, p4Changes.get(p4Changes.size() - 1).getChangeList());
-        applyP4Changes(p4Changes, repoInfo);
+//        applyP4Changes(p4Changes, repoInfo);
+        applyP4Changes2(p4Changes, repoInfo);
 
         GitAdd.run(gitP4ConfigFilePath.toString());
         GitCommit.run("update git p4 config");
@@ -224,7 +227,10 @@ class GitP4Bridge {
         executor.awaitTermination(-1, TimeUnit.MILLISECONDS);
         logger.info("Finished cloning changelist: " + clInfo.getChangelist());
         if (!allGood) throw new IllegalStateException("Failed to clone/sync changelist " + clInfo.getChangelist());
+        gitAddRmFiles(addFiles, removeFiles);
+    }
 
+    private void gitAddRmFiles(List<String> addFiles, List<String> removeFiles) throws Exception {
         if (!addFiles.isEmpty()) {
             logger.info("Git add...");
             pagedAction(addFiles, 20, page -> {
@@ -293,6 +299,74 @@ class GitP4Bridge {
             config.setProperty(GitP4Config.lastSync, clInfo.getChangelist());
             GitP4Config.save(config, gitP4ConfigFilePath, "apply p4 changes");
         }
+    }
+
+    private void applyP4Changes2(List<P4ChangeInfo> p4Changes, P4RepositoryInfo repoInfo) throws Exception {
+        int i = 1;
+        int total = p4Changes.size();
+        for (P4ChangeInfo change : p4Changes) {
+            logger.info(String.format("[%1$d/%2$d]: %3$s", i++, total, change.toString()));
+//            P4Sync.forceSyncTo(repoInfo, change.getChangeList());
+            //sleep 1 second to wait for p4 sync
+//            Thread.sleep(1000);
+            copySingleChangelist(change, repoInfo);
+        }
+    }
+
+    //File.mkdirs will treat file starting with . as dir, that's why we need this
+    private void createDirRecursively(String filePath, char delimiter) throws IOException {
+        String[] dirs = StringUtils.split(filePath, "" + delimiter);
+        String dirStr = dirs[0];
+        // the last section is file name itself
+        for (int i = 1; i < dirs.length - 1; ++i) {
+            dirStr = "".equals(dirStr) ? dirs[i] : String.format("%1$s%2$c%3$s", dirStr, delimiter, dirs[i]);
+            Path wanted = Paths.get(dirStr);
+            if (!Files.exists(wanted)) {
+                Files.createDirectory(wanted);
+                logger.debug("dirs created: " + dirStr);
+            }
+        }
+    }
+
+    private String copySingleChangelist(P4ChangeInfo p4Change, P4RepositoryInfo repoInfo) throws Exception {
+        P4FileStatInfo info = P4Fstat.getChangelistStats(p4Change.getChangeList(), repoInfo);
+        logger.info(String.format("%d files to copy", info.getFiles().size()));
+        List<String> addFiles = new LinkedList<>();
+        List<String> removeFiles = new LinkedList<>();
+        List<Callable<Boolean>> theCallable = new LinkedList<>();
+        final Progress p = new Progress(info.getFiles().size());
+        p.show();
+        for (P4FileInfoEx file : info.getFiles()) {
+            p.progress(1);
+            final String target = file.getDepotFile().replace(repoInfo.getPath(), "./");
+            final String targetWithQuotes = String.format("\"%s\"", target);
+            if (P4Operation.delete == file.getOperation()) {
+                removeFiles.add(targetWithQuotes);
+                continue;
+            }
+
+            createDirRecursively(target, '/');
+
+            addFiles.add(targetWithQuotes);
+            theCallable.add(() -> {
+                try {
+                    Files.write(Paths.get(target),
+                            Files.readAllBytes(Paths.get(file.getClientFile())),
+                            StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                    return true;
+                } catch (Exception e) {
+                    logger.error(String.format("Failed to copy file %1$s -> %2$s", file.getClientFile(), target), e);
+                }
+                return false;
+            });
+        }
+        Utils.runConcurrentlyAndAggregate(MAX_THREADS, theCallable, x -> p.progress(1));
+
+
+        gitAddRmFiles(addFiles, removeFiles);
+        String comments = String.format(commitCommentsTemplate, info.getDescription(), repoInfo.getPath(), p4Change.getChangeList());
+        GitCommit.run(comments);
+        return info.getDescription();
     }
 
     private void createGitP4Directory(P4RepositoryInfo p4RepositoryInfo, String lastChangelist) throws Exception {
