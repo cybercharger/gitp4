@@ -230,7 +230,11 @@ class GitP4Bridge {
             final String target = file.getDepotFile().replace(repoInfo.getPath(), "./");
             final String targetWithQuotes = String.format("\"%s\"", target);
             if (P4Operation.delete == file.getOperation()) {
-                removeFiles.add(targetWithQuotes);
+                if (Files.exists(Paths.get(target))) {
+                    removeFiles.add(targetWithQuotes);
+                } else {
+                    logger.debug(String.format("ignore deleting of nonexistent file %s", target));
+                }
                 p.progress(1);
                 continue;
             }
@@ -261,7 +265,7 @@ class GitP4Bridge {
         gitAddRmFiles(addFiles, removeFiles);
         updateLastSyncAndGitAdd(p4Change.getChangeList());
         String comments = String.format(commitCommentsTemplate, info.getDescription(), repoInfo.getPath(), p4Change.getChangeList());
-        GitCommit.run(comments);
+        GitCommit.commitFromFile(comments, p4Change.getChangeList());
         return info.getDescription();
     }
 
