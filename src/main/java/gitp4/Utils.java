@@ -57,6 +57,7 @@ public class Utils {
     public static <T> void pagedAction(List<T> data, final int pageSize, Consumer<List<T>> action) throws Exception {
         Progress p = new Progress(data.size());
         int page = 0;
+        p.show();
         for (; page < data.size() / pageSize; ++page) {
             List<T> section = new ArrayList<>(pageSize);
             for (int i = 0; i < pageSize; ++i) {
@@ -77,7 +78,9 @@ public class Utils {
     }
 
     //File.mkdirs will treat file starting with . as dir, that's why we need this
-    public static void createDirRecursively(String filePath, char delimiter) throws IOException {
+    public static void createDirRecursively(String filePath, char delimiter, Consumer<IOException> onIOException) {
+        if (StringUtils.isBlank(filePath)) throw new NullPointerException("filePath");
+        if (onIOException == null) throw new NullPointerException("onIOException");
         String[] dirs = StringUtils.split(filePath, "" + delimiter);
         String dirStr = dirs[0];
         // the last section is file name itself
@@ -85,7 +88,12 @@ public class Utils {
             dirStr = "".equals(dirStr) ? dirs[i] : String.format("%1$s%2$c%3$s", dirStr, delimiter, dirs[i]);
             Path wanted = Paths.get(dirStr);
             if (!Files.exists(wanted)) {
-                Files.createDirectory(wanted);
+                try {
+                    Files.createDirectory(wanted);
+                } catch (IOException e) {
+                    logger.error("Failed to create dir: " +  dirStr);
+                    onIOException.accept(e);
+                }
                 logger.debug("dirs created: " + dirStr);
             }
         }

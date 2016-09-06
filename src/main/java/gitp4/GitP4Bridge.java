@@ -1,6 +1,5 @@
 package gitp4;
 
-import gitp4.console.Progress;
 import gitp4.git.GitFileInfo;
 import gitp4.git.GitLogInfo;
 import gitp4.git.cmd.*;
@@ -9,6 +8,7 @@ import gitp4.p4.cmd.*;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
 
+import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
@@ -18,6 +18,7 @@ import java.nio.file.StandardOpenOption;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 /**
  * Created by chriskang on 8/24/2016.
@@ -25,7 +26,7 @@ import java.util.function.Consumer;
 class GitP4Bridge {
     private static Logger logger = Logger.getLogger(GitP4Bridge.class);
 
-    private static final String commitCommentsTemplate = "%1$s [git-p4 depot-paths = %2$s change = %3$s]";
+    private static final String commitCommentsTemplate = "p4-%3$s: %1$s [git-p4 depot-paths = %2$s change = %3$s]";
     private static final String GIT_P4_SYNC_CMD_FMT = "%1$s...@%2$d,#head";
     private static final String lastSubmitTag = "last_p4_submit";
     private static final String p4IntBranchName = "p4-integ";
@@ -37,6 +38,9 @@ class GitP4Bridge {
     //TODO: move this to properties
     private static final int MAX_THREADS = 10;
     private static final int GIT_ADD_RM_PAGE_SIZE = 20;
+    // delay in milliseconds after p4 sync -f @=
+    private static final int P4_SYNC_DELAY = 1000;
+    private static final char SLASH = '/';
 
     private static class MethodInfo {
         final int paramNum;
@@ -109,7 +113,6 @@ class GitP4Bridge {
         GitCommit.run("update git p4 config");
 
         GitTag.run(lastSubmitTag, "git p4 clone");
-        Thread.sleep(1000);
         GitCheckout.run(String.format("-b %s", p4IntBranchName));
     }
 
@@ -127,6 +130,9 @@ class GitP4Bridge {
             logger.info("files are up to date");
             return;
         }
+
+        logger.info(String.format("Totally %d changelist(s) to sync", p4Changes.size()));
+
         applyP4Changes(p4Changes, repoInfo);
         updateGitP4Config();
     }
@@ -182,10 +188,13 @@ class GitP4Bridge {
         String p4cl = P4Change.createEmptyChangeList("Integration from git");
     }
 
-    private static void pagedAction(List<String> files, Consumer<String> action, String log) throws Exception {
+    private static void pagedActionOnFiles(List<String> files, Consumer<String> action, String log) throws Exception {
         if (!files.isEmpty()) {
             logger.info(log);
-            Utils.pagedAction(files, GIT_ADD_RM_PAGE_SIZE, page -> action.accept(StringUtils.join(page, " ")));
+            List<String> filesWithQuotes = files.stream()
+                    .map(cur -> String.format("\"%s\"", cur))
+                    .collect(Collectors.toList());
+            Utils.pagedAction(filesWithQuotes, GIT_ADD_RM_PAGE_SIZE, page -> action.accept(StringUtils.join(page, " ")));
         }
     }
 
@@ -196,34 +205,30 @@ class GitP4Bridge {
             logger.info(String.format("[%1$d/%2$d]: %3$s", i++, total, change.toString()));
             logger.info("syncing p4 client to change list " + change.getChangeList());
             P4Sync.forceSyncTo(repoInfo, change.getChangeList());
+
+            Thread.sleep(P4_SYNC_DELAY);
             copySingleChangelistAndGitCommit(change, repoInfo);
         }
     }
 
     private String copySingleChangelistAndGitCommit(P4ChangeInfo p4Change, P4RepositoryInfo repoInfo) throws Exception {
         P4FileStatInfo info = P4Fstat.getChangelistStats(p4Change.getChangeList(), repoInfo);
-        logger.info(String.format("%d file(s) to copy", info.getFiles().size()));
+        logger.info(String.format("%d file(s) to copy/delete", info.getFiles().size()));
         List<String> addFiles = new LinkedList<>();
         List<String> removeFiles = new LinkedList<>();
         List<Callable<Boolean>> theCallable = new LinkedList<>();
-        final Progress p = new Progress(info.getFiles().size());
-        p.show();
         for (P4FileInfoEx file : info.getFiles()) {
             final String target = file.getDepotFile().replace(repoInfo.getPath(), "./");
-            final String targetWithQuotes = String.format("\"%s\"", target);
             if (P4Operation.delete == file.getOperation()) {
                 if (Files.exists(Paths.get(target))) {
-                    removeFiles.add(targetWithQuotes);
+                    removeFiles.add(String.format("\"%s\"", target));
                 } else {
                     logger.debug(String.format("ignore deleting of nonexistent file %s", target));
                 }
-                p.progress(1);
                 continue;
             }
 
-            Utils.createDirRecursively(target, '/');
-
-            addFiles.add(targetWithQuotes);
+            addFiles.add(target);
             theCallable.add(() -> {
                 try {
                     Files.write(Paths.get(target),
@@ -233,15 +238,12 @@ class GitP4Bridge {
                 } catch (Exception e) {
                     logger.error(String.format("Failed to copy file %1$s -> %2$s", file.getClientFile(), target), e);
                     return false;
-                } finally {
-                    p.progress(1);
                 }
-
             });
         }
         // git rm files first, to avoid the case that move/delete & move/add in the same changelist, to rename a specific
         // file name. This happens when renaming files in IntelliJ
-        pagedAction(removeFiles, str -> {
+        pagedActionOnFiles(removeFiles, str -> {
             try {
                 GitRm.run(str);
             } catch (Exception e) {
@@ -249,13 +251,24 @@ class GitP4Bridge {
             }
         }, "Git rm...");
 
-        // copying file in parallel
-        if (!theCallable.isEmpty()) {
-            Utils.runConcurrentlyAndAggregate(MAX_THREADS, theCallable);
+        logger.info("creating necessary dirs...");
+        for (String target : addFiles) {
+            Utils.createDirRecursively(target, SLASH, e -> {
+                logger.error(e);
+                throw new RuntimeException(e);
+            });
         }
 
 
-        pagedAction(addFiles, str -> {
+        // copying file in parallel
+        logger.info("copying files...");
+        if (!theCallable.isEmpty()) {
+            if (!Utils.runConcurrentlyAndAggregate(MAX_THREADS, theCallable)) {
+                throw new RuntimeException("Error occurred when copying files for changelist " + p4Change.getChangeList());
+            }
+        }
+
+        pagedActionOnFiles(addFiles, str -> {
             try {
                 GitAdd.run(str);
             } catch (Exception e) {
