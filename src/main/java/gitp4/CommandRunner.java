@@ -1,5 +1,6 @@
 package gitp4;
 
+import gitp4.console.Progress;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
 
@@ -17,9 +18,13 @@ import java.util.concurrent.*;
 public class CommandRunner {
     private static final Logger logger = Logger.getLogger(CommandRunner.class);
     private static final long BUFFER_READ_INTERVAL = 100;
-    private static void readStream(BufferedReader reader, List<String> result) throws IOException {
-        for(String line = reader.readLine(); line != null; line = reader.readLine()) {
-            result.add(line);
+    private static void readStream(BufferedReader reader, List<String> result, Process p) throws IOException, InterruptedException {
+        while(true) {
+            Thread.sleep(BUFFER_READ_INTERVAL);
+            for (String line = reader.readLine(); line != null; line = reader.readLine()) {
+                result.add(line);
+            }
+            if (!p.isAlive()) break;
         }
     }
 
@@ -32,16 +37,16 @@ public class CommandRunner {
         ExecutorService executor = Executors.newFixedThreadPool(2);
         Future stdFuture = executor.submit(() -> {
             try {
-                readStream(stdReader, result);
-            } catch (IOException e) {
+                readStream(stdReader, result, p);
+            } catch (Exception e) {
                 logger.error(e);
             }
         });
 
         Future errFuture = executor.submit(() -> {
             try {
-                readStream(errReader, error);
-            } catch (IOException e) {
+                readStream(errReader, error, p);
+            } catch (Exception e) {
                 logger.error(e);
             }
         });
@@ -53,27 +58,6 @@ public class CommandRunner {
         stdReader.close();
         errReader.close();
 
-//        //Read cmd output every BUFFER_READ_INTERVAL milliseconds to prevent the process hung due to the buffer full
-//        int i = 0;
-//        for (; !p.waitFor(BUFFER_READ_INTERVAL, TimeUnit.MILLISECONDS); ++i) {
-//            logger.debug("timeout for " + p.toString());
-//            for ( String res = stdReader.readLine(); res != null; res = stdReader.readLine()) {
-//                result.add(res);
-//            }
-//            logger.debug("all stdout read");
-//            for (String err = errReader.readLine(); err != null; err = errReader.readLine()) {
-//                error.add(err);
-//            }
-//        }
-//        logger.debug("Process finished " + p.toString());
-//        int j = 0;
-//        for (String res = stdReader.readLine(); res != null; res = stdReader.readLine(), ++j) {
-//            result.add(res);
-//        }
-//        for (String err = errReader.readLine(); err != null; err = stdReader.readLine()) {
-//            error.add(err);
-//        }
-//        logger.debug(String.format("read buffer (%1$d + %2$d) times", i, j));
         if (!error.isEmpty()) {
             logger.debug(String.format("[Error or Warning] of running %1$s\n%2$s", cmd, StringUtils.join(error, "\n")));
         }

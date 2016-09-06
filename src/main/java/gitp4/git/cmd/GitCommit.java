@@ -22,9 +22,10 @@ public class GitCommit {
     }
 
     public static void commitFromFile(final String comments, final String changelist) throws Exception {
-        return;
-//        if (StringUtils.isBlank(comments)) throw new NullPointerException("comments");
-//        Files.write(Paths.get(changelist), comments.getBytes(), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-//        CmdRunner.run(() -> String.format(GIT_COMMIT_F_CMD, Paths.get(changelist).toString()), (cmdRes) -> "");
+        if (StringUtils.isBlank(comments)) throw new NullPointerException("comments");
+        Path tmpFile = Paths.get(changelist);
+        Files.write(tmpFile, comments.getBytes(), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+        CmdRunner.run(() -> String.format(GIT_COMMIT_F_CMD, Paths.get(changelist).toString()), (cmdRes) -> "");
+        Files.deleteIfExists(tmpFile);
     }
 }

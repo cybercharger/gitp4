@@ -17,6 +17,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.function.Consumer;
 
 /**
  * Created by chriskang on 8/24/2016.
@@ -35,6 +36,7 @@ class GitP4Bridge {
 
     //TODO: move this to properties
     private static final int MAX_THREADS = 10;
+    private static final int GIT_ADD_RM_PAGE_SIZE = 20;
 
     private static class MethodInfo {
         final int paramNum;
@@ -107,6 +109,7 @@ class GitP4Bridge {
         GitCommit.run("update git p4 config");
 
         GitTag.run(lastSubmitTag, "git p4 clone");
+        Thread.sleep(1000);
         GitCheckout.run(String.format("-b %s", p4IntBranchName));
     }
 
@@ -179,30 +182,11 @@ class GitP4Bridge {
         String p4cl = P4Change.createEmptyChangeList("Integration from git");
     }
 
-    private void gitAddRmFiles(List<String> addFiles, List<String> removeFiles) throws Exception {
-        final int pageSize = 20;
-        if (!addFiles.isEmpty()) {
-            logger.info("Git add...");
-            Utils.pagedAction(addFiles, pageSize, page -> {
-                try {
-                    GitAdd.run(StringUtils.join(page, " "));
-                } catch (Exception e) {
-                    logger.error("Failed to add files", e);
-                }
-            });
+    private static void pagedAction(List<String> files, Consumer<String> action, String log) throws Exception {
+        if (!files.isEmpty()) {
+            logger.info(log);
+            Utils.pagedAction(files, GIT_ADD_RM_PAGE_SIZE, page -> action.accept(StringUtils.join(page, " ")));
         }
-
-        if (!removeFiles.isEmpty()) {
-            logger.info("Git rm...");
-            Utils.pagedAction(removeFiles, pageSize, page -> {
-                try {
-                    GitRm.run(StringUtils.join(page, " "));
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            });
-        }
-
     }
 
     private void applyP4Changes(List<P4ChangeInfo> p4Changes, P4RepositoryInfo repoInfo) throws Exception {
@@ -212,8 +196,6 @@ class GitP4Bridge {
             logger.info(String.format("[%1$d/%2$d]: %3$s", i++, total, change.toString()));
             logger.info("syncing p4 client to change list " + change.getChangeList());
             P4Sync.forceSyncTo(repoInfo, change.getChangeList());
-            //sleep 1 second to wait for p4 sync
-            Thread.sleep(1000);
             copySingleChangelistAndGitCommit(change, repoInfo);
         }
     }
@@ -257,12 +239,30 @@ class GitP4Bridge {
 
             });
         }
+        // git rm files first, to avoid the case that move/delete & move/add in the same changelist, to rename a specific
+        // file name. This happens when renaming files in IntelliJ
+        pagedAction(removeFiles, str -> {
+            try {
+                GitRm.run(str);
+            } catch (Exception e) {
+                logger.error(e);
+            }
+        }, "Git rm...");
+
+        // copying file in parallel
         if (!theCallable.isEmpty()) {
             Utils.runConcurrentlyAndAggregate(MAX_THREADS, theCallable);
         }
 
 
-        gitAddRmFiles(addFiles, removeFiles);
+        pagedAction(addFiles, str -> {
+            try {
+                GitAdd.run(str);
+            } catch (Exception e) {
+                logger.error(e);
+            }
+        }, "Git add...");
+
         updateLastSyncAndGitAdd(p4Change.getChangeList());
         String comments = String.format(commitCommentsTemplate, info.getDescription(), repoInfo.getPath(), p4Change.getChangeList());
         GitCommit.commitFromFile(comments, p4Change.getChangeList());
