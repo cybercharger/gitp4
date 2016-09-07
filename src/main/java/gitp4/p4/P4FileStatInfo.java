@@ -2,10 +2,7 @@ package gitp4.p4;
 
 import org.apache.commons.lang3.StringUtils;
 
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.*;
 
 /**
  * Created by chriskang on 9/1/2016.
@@ -19,8 +16,11 @@ public class P4FileStatInfo {
     private static final String ACTION_TAG = "... headAction ";
     private static final String REVISION_TAG = "... headRev ";
 
+    public static final P4FileStatInfo EMPTY = new P4FileStatInfo(Collections.emptyList(), "EMPTY");
+
     public static P4FileStatInfo create(List<String> cmdRes) {
-        if (cmdRes == null || cmdRes.isEmpty()) throw new NullPointerException("cmdRes");
+        if (cmdRes == null) throw new NullPointerException("cmdRes");
+        if (cmdRes.isEmpty()) return EMPTY;
         List<List<String>> sections = split(cmdRes);
         List<P4FileInfoEx> files = new LinkedList<>();
         String desc = "";

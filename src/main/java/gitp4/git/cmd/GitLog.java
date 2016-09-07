@@ -18,7 +18,7 @@ public class GitLog {
     private static final String GIT_LOG_LATEST_COMMIT = "git log -1 --pretty=oneline";
     private static Pattern pattern = Pattern.compile("[^\\s\\.]+\\.\\.[^\\s\\.]+");
 
-    public static List<GitLogInfo> run(final String rangeInfo) throws Exception {
+    public static List<GitLogInfo> run(final String rangeInfo) {
         validateInput(rangeInfo);
         return CmdRunner.run(() -> String.format(GIT_LOG_CMD, GitLogInfo.CMD_PARAM, rangeInfo),
                 (cmdRes) -> {
@@ -28,7 +28,7 @@ public class GitLog {
                 });
     }
 
-    public static List<GitFileInfo> getAllChangedFiles(final String rangeInfo) throws Exception {
+    public static List<GitFileInfo> getAllChangedFiles(final String rangeInfo) {
         validateInput(rangeInfo);
         return CmdRunner.run(() -> String.format(GIT_LOG_CMD, GitFileInfo.CMD_PARAM, rangeInfo),
                 (cmdRes) -> {
@@ -38,7 +38,7 @@ public class GitLog {
                 });
     }
 
-    public static GitLogInfo getLatestCommit() throws Exception {
+    public static GitLogInfo getLatestCommit() {
         return CmdRunner.run(() -> GIT_LOG_LATEST_COMMIT,
                 cmdRes -> {
                     if (cmdRes == null || cmdRes.size() != 1) {

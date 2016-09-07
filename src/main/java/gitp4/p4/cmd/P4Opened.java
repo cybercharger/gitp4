@@ -13,13 +13,14 @@ import java.util.stream.Collectors;
  */
 public class P4Opened {
     private static final String P4_CMD_STR = "p4 opened %s";
-    public static List<P4FileOpenedInfo> run(String p4Repo) throws Exception {
+
+    public static List<P4FileOpenedInfo> run(String p4Repo) {
         if (StringUtils.isBlank(p4Repo)) throw new NullPointerException("p4Repo");
         return CmdRunner.run(() -> String.format(P4_CMD_STR, p4Repo),
-                cmdRes ->  cmdRes.stream().
+                cmdRes -> cmdRes.stream().
                         map(P4FileOpenedInfo::create).
                         filter(cur -> cur != null).
                         collect(Collectors.toCollection(LinkedList::new))
-                );
+        );
     }
 }

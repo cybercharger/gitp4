@@ -9,7 +9,7 @@ import org.apache.commons.lang3.StringUtils;
 public class P4Print {
     public static final String P4_PRINT_CMD = "p4 print -q -o %1$s %2$s";
 
-    public static void run(final String p4File, final String outputFile) throws Exception {
+    public static void run(final String p4File, final String outputFile) {
         if (StringUtils.isBlank(p4File)) throw new NullPointerException("p4File");
         if (StringUtils.isBlank(outputFile)) throw new NullPointerException("outputFile");
         CmdRunner.run(() -> String.format(P4_PRINT_CMD, outputFile, p4File), (cmdRes) -> "");

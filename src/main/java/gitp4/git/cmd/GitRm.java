@@ -7,8 +7,9 @@ import gitp4.CmdRunner;
  */
 public class GitRm {
     private static final String GIT_RM_CMD = "git rm %s";
-    public static void run(final String files) throws Exception {
+
+    public static void run(final String files) {
         if (files == null || files.isEmpty()) throw new NullPointerException("files");
-        CmdRunner.run(()->String.format(GIT_RM_CMD, files), (cmdRes)->"");
+        CmdRunner.run(() -> String.format(GIT_RM_CMD, files), (cmdRes) -> "");
     }
 }

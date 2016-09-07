@@ -12,16 +12,24 @@ import java.util.function.Function;
  */
 public class CmdRunner {
     private static final Logger logger = Logger.getLogger(CmdRunner.class);
-    public static <T> T run(Callable<String> getCmd, Function<List<String>, T> resultHandler) throws Exception {
-        String cmd = getCmd.call();
-        try {
-            logger.debug("Running command: " + cmd);
-            List<String> cmdRes = CommandRunner.runCommand(cmd);
-            logger.debug("command output: \n" + StringUtils.join(cmdRes, "\n"));
-            return resultHandler.apply(cmdRes);
-        } catch (Exception e) {
-            logger.error(String.format("Error running cmd %s", cmd), e);
-            throw e;
-        }
+
+    public static <T> T run(Callable<String> getCmd, Function<List<String>, T> resultHandler) {
+        return run(getCmd, resultHandler, "");
+    }
+
+    public static <T> T run(Callable<String> getCmd, Function<List<String>, T> resultHandler, String input) {
+        return Utils.runtimeExceptionWrapper(() -> {
+            String cmd = getCmd.call();
+            try {
+                logger.debug("Running command: " + cmd);
+                List<String> cmdRes = CommandRunner.runCommand(cmd, input);
+                logger.debug("command output: \n" + StringUtils.join(cmdRes, "\n"));
+                return resultHandler.apply(cmdRes);
+            } catch (Exception e) {
+                logger.error(String.format("Error running cmd %s", cmd), e);
+                throw e;
+            }
+
+        });
     }
 }

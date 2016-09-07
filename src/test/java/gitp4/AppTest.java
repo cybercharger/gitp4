@@ -166,8 +166,44 @@ public class AppTest {
 
     @Test
     public void testP4RepoInfo() throws IOException {
-        P4RepositoryInfo info = new P4RepositoryInfo("//nucleus/SANDBOX/catalog/...@265261,@265262");
+        P4RepositoryInfo info = new P4RepositoryInfo("//nucleus/SANDBOX/catalog/...");
         Assert.assertEquals("//nucleus/SANDBOX/catalog/", info.getPath());
         Assert.assertEquals("//nucleus/SANDBOX/catalog/...", info.getPathWithSubContents());
+
+        info = new P4RepositoryInfo("//nucleus/SANDBOX/catalog/...@265261");
+        Assert.assertEquals("//nucleus/SANDBOX/catalog/", info.getPath());
+        Assert.assertEquals("//nucleus/SANDBOX/catalog/...", info.getPathWithSubContents());
+
+        info = new P4RepositoryInfo("//nucleus/SANDBOX/catalog/...#head");
+        Assert.assertEquals("//nucleus/SANDBOX/catalog/", info.getPath());
+        Assert.assertEquals("//nucleus/SANDBOX/catalog/...", info.getPathWithSubContents());
+
+        info = new P4RepositoryInfo("//nucleus/SANDBOX/catalog/...@265261,#head");
+        Assert.assertEquals("//nucleus/SANDBOX/catalog/", info.getPath());
+        Assert.assertEquals("//nucleus/SANDBOX/catalog/...", info.getPathWithSubContents());
+
+        Exception exp = null;
+        try {
+            new P4RepositoryInfo("//nucleus/SANDBOX/catalog/");
+        } catch (IllegalArgumentException e) {
+            exp = e;
+        }
+        Assert.assertNotNull(exp);
+
+        exp = null;
+        try {
+            new P4RepositoryInfo("//nucleus/SANDBOX/catalog/...@123, @234");
+        } catch (IllegalArgumentException e) {
+            exp = e;
+        }
+        Assert.assertNotNull(exp);
+
+        exp = null;
+        try {
+            new P4RepositoryInfo("//nucleus/SANDBOX/catalog/...#head,@234");
+        } catch (IllegalArgumentException e) {
+            exp = e;
+        }
+        Assert.assertNotNull(exp);
     }
 }

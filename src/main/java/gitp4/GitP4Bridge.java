@@ -8,7 +8,7 @@ import gitp4.p4.cmd.*;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
 
-import java.io.IOException;
+import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
@@ -16,7 +16,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.Callable;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -26,7 +26,9 @@ import java.util.stream.Collectors;
 class GitP4Bridge {
     private static Logger logger = Logger.getLogger(GitP4Bridge.class);
 
-    private static final String commitCommentsTemplate = "p4-%3$s: %1$s [git-p4 depot-paths = %2$s change = %3$s]";
+    private static final String commitCommentsTemplate = "p4-%3$s: %1$s [p4 depot = %2$s change = %3$s from %4$s on %5$s]";
+    private static final String submitHints = "p4 changelist %1$s has been created. Please re-tag last_p4_submit to %2$s after having it checked in";
+
     private static final String GIT_P4_SYNC_CMD_FMT = "%1$s...@%2$d,#head";
     private static final String lastSubmitTag = "last_p4_submit";
     private static final String p4IntBranchName = "p4-integ";
@@ -73,7 +75,11 @@ class GitP4Bridge {
             return;
         }
         List<String> newArgs = requiredParamNum > 0 ? Arrays.asList(Arrays.copyOfRange(args, 1, args.length)) : null;
-        methodMap.get(args[0]).method.invoke(this, newArgs);
+        try {
+            methodMap.get(args[0]).method.invoke(this, newArgs);
+        } catch (Exception e) {
+            logger.error(e);
+        }
     }
 
     private static void logError(Set<String> operations) {
@@ -137,10 +143,10 @@ class GitP4Bridge {
         updateGitP4Config();
     }
 
-    @GitP4Operation(paramNum = 0)
+    @GitP4Operation(paramNum = 1)
     private void submit(List<String> parameters) throws Exception {
         GitLogInfo latest = GitLog.getLatestCommit();
-        logger.info("Submit commits upto " + latest.getCommit());
+        logger.info("Commits submitted upto " + latest.getCommit());
         final String range = String.format("%1$s..%2$s", lastSubmitTag, latest.getCommit());
         List<GitLogInfo> logInfo = GitLog.run(range);
         if (logInfo.isEmpty()) {
@@ -153,13 +159,11 @@ class GitP4Bridge {
         Set<String> affectedFiles = new HashSet<>();
         for (GitFileInfo info : files) {
             switch (info.getChangeType()) {
+                case Rename:
+                    affectedFiles.add(info.getNewFile());
                 case Add:
                 case Delete:
                 case Modify:
-                    affectedFiles.add(info.getOldFile());
-                    break;
-                case Rename:
-                    affectedFiles.add(info.getOldFile());
                     affectedFiles.add(info.getOldFile());
                     break;
                 default:
@@ -167,11 +171,7 @@ class GitP4Bridge {
             }
         }
         Properties config = GitP4Config.load(gitP4ConfigFilePath);
-        P4RepositoryInfo p4Repo = new P4RepositoryInfo(config.getProperty(GitP4Config.p4Repo));
-
-        logger.info("=== affected files ===");
-        affectedFiles.stream().map(cur -> p4Repo.getPath() + cur).forEach(logger::info);
-
+        P4RepositoryInfo p4Repo = new P4RepositoryInfo(config.getProperty(GitP4Config.p4Repo) + P4RepositoryInfo.TRIPLE_DOTS);
         List<P4FileOpenedInfo> p4Opened = P4Opened.run(p4Repo.getPathWithSubContents());
 
         if (p4Opened != null && !p4Opened.isEmpty()) {
@@ -181,14 +181,94 @@ class GitP4Bridge {
                 String file = cur.getFile().replace(p4Repo.getPath(), "");
                 return affectedFiles.contains(file);
             }).toArray();
-            if (intersection != null && intersection.length > 0)
+            if (intersection != null && intersection.length > 0) {
                 logger.warn(String.format("Conflict found, files also opened on p4 repo: \n%s", StringUtils.join(intersection, "\n")));
+            }
             return;
         }
-        String p4cl = P4Change.createEmptyChangeList("Integration from git");
+
+        Map<String, String> gitP4DepotFileMap = affectedFiles.stream()
+                .collect(Collectors.toMap(cur -> cur, cur -> p4Repo.getPath() + cur));
+        logger.info(String.format("%1$d affected file(s):\n%2$s", affectedFiles.size(), StringUtils.join(affectedFiles, "\n")));
+        Map<String, String> p4ExistingFiles = new HashMap<>();
+
+        pagedActionOnFiles(gitP4DepotFileMap.values(),
+                cur -> P4Fstat.getFileStats(cur).getFiles().forEach(info -> p4ExistingFiles.put(info.getDepotFile(), info.getClientFile())),
+                "checking p4 files...");
+
+        Map<String, String> copyMap = new HashMap<>();
+        Set<String> editSet = new HashSet<>();
+        Set<String> addSet = new HashSet<>();
+        Set<String> deleteSet = new HashSet<>();
+        gitP4DepotFileMap.entrySet().forEach(cur -> {
+            Path source = Paths.get(cur.getKey());
+            String p4File = cur.getValue();
+            boolean gitExists = Files.exists(source);
+            boolean p4Exists = p4ExistingFiles.containsKey(p4File);
+            if (gitExists) {
+                String target = null;
+                if (p4Exists) {
+                    editSet.add(p4File);
+                    target = p4ExistingFiles.get(p4File);
+                } else {
+                    addSet.add(cur.getValue());
+                    target = Paths.get(p4Repo.getPathMap().getLocalPath() + cur).toString();
+                }
+                copyMap.put(source.toString(), target);
+
+            } else {
+                if (p4Exists) {
+                    deleteSet.add(p4File);
+                } else {
+                    logger.warn(String.format("ignore file %s", cur.getKey()));
+                }
+            }
+        });
+
+//        logger.info(String.format("p4 edit:\n%s", StringUtils.join(editSet, "\n")));
+//        logger.info(String.format("p4 delete:\n%s", StringUtils.join(deleteSet, "\n")));
+//        logger.info(String.format("p4 add:\n%s", StringUtils.join(addSet, "\n")));
+//        logger.info(String.format("copy map\n%s", StringUtils.join(copyMap.entrySet(), "\n")));
+
+        String p4cl = P4Change.createEmptyChangeList(parameters.get(0));
+
+        pagedActionOnFiles(editSet, cur -> P4Edit.run(cur, p4cl), "p4 edit...");
+
+        pagedActionOnFiles(deleteSet, cur -> P4Delete.run(cur, p4cl), "p4 delete...");
+
+        List<Callable<Boolean>> theCallable = new LinkedList<>();
+        for (Map.Entry<String, String> entry : copyMap.entrySet()) {
+            Utils.createDirRecursively(entry.getValue(), File.separatorChar, e -> {
+                throw new RuntimeException(e);
+            });
+
+
+            theCallable.add(() -> {
+                try {
+                    Files.write(Paths.get(entry.getValue()),
+                            Files.readAllBytes(Paths.get(entry.getKey())),
+                            StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                    return true;
+                } catch (Exception e) {
+                    logger.error(String.format("Failed to copy file %1$s -> %2$s", entry.getKey(), entry.getValue()), e);
+                    return false;
+                }
+            });
+        }
+
+        // copying file in parallel
+        logger.info("copying files...");
+        if (!theCallable.isEmpty()) {
+            if (!Utils.runConcurrentlyAndAggregate(MAX_THREADS, theCallable)) {
+                throw new RuntimeException("Error occurred when copying files");
+            }
+        }
+
+        pagedActionOnFiles(addSet, cur -> P4Add.run(cur, p4cl), "p4 add...");
+        logger.info(String.format(submitHints, p4cl, latest.getCommit()));
     }
 
-    private static void pagedActionOnFiles(List<String> files, Consumer<String> action, String log) throws Exception {
+    private static void pagedActionOnFiles(Collection<String> files, Consumer<String> action, String log) throws Exception {
         if (!files.isEmpty()) {
             logger.info(log);
             List<String> filesWithQuotes = files.stream()
@@ -243,13 +323,7 @@ class GitP4Bridge {
         }
         // git rm files first, to avoid the case that move/delete & move/add in the same changelist, to rename a specific
         // file name. This happens when renaming files in IntelliJ
-        pagedActionOnFiles(removeFiles, str -> {
-            try {
-                GitRm.run(str);
-            } catch (Exception e) {
-                logger.error(e);
-            }
-        }, "Git rm...");
+        pagedActionOnFiles(removeFiles, GitRm::run, "Git rm...");
 
         logger.info("creating necessary dirs...");
         for (String target : addFiles) {
@@ -268,16 +342,16 @@ class GitP4Bridge {
             }
         }
 
-        pagedActionOnFiles(addFiles, str -> {
-            try {
-                GitAdd.run(str);
-            } catch (Exception e) {
-                logger.error(e);
-            }
-        }, "Git add...");
+        pagedActionOnFiles(addFiles, GitAdd::run, "Git add...");
 
         updateLastSyncAndGitAdd(p4Change.getChangeList());
-        String comments = String.format(commitCommentsTemplate, info.getDescription(), repoInfo.getPath(), p4Change.getChangeList());
+        String comments = String.format(commitCommentsTemplate,
+                info.getDescription(),
+                repoInfo.getPath(),
+                p4Change.getChangeList(),
+                p4Change.getP4UserInfo().toString(),
+                p4Change.getDate());
+
         GitCommit.commitFromFile(comments, p4Change.getChangeList());
         return info.getDescription();
     }

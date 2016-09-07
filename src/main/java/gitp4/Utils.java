@@ -20,6 +20,7 @@ import java.util.function.Consumer;
  */
 public class Utils {
     private static final Logger logger = Logger.getLogger(Utils.class);
+
     public static boolean isValidGitCommitId(String commitId) {
         return !StringUtils.isBlank(commitId) &&
                 (Constants.fullCommitIdPattern.matcher(commitId).matches()
@@ -47,7 +48,7 @@ public class Utils {
                                                       Collection<Callable<Boolean>> theCallable)
             throws ExecutionException, InterruptedException {
         List<Boolean> result = runConcurrently(nThreads, theCallable);
-        for(Boolean b : result) {
+        for (Boolean b : result) {
             if (!b) return false;
         }
         return true;
@@ -91,7 +92,7 @@ public class Utils {
                 try {
                     Files.createDirectory(wanted);
                 } catch (IOException e) {
-                    logger.error("Failed to create dir: " +  dirStr);
+                    logger.error("Failed to create dir: " + dirStr);
                     onIOException.accept(e);
                 }
                 logger.debug("dirs created: " + dirStr);
@@ -99,5 +100,12 @@ public class Utils {
         }
     }
 
-
+    public static <T> T runtimeExceptionWrapper(Callable<T> callable) {
+        try {
+            return callable.call();
+        } catch (Throwable e) {
+            logger.error(e);
+            throw (e instanceof RuntimeException) ? (RuntimeException) e : new RuntimeException(e);
+        }
+    }
 }

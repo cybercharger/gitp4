@@ -9,7 +9,8 @@ import org.apache.commons.lang3.StringUtils;
  */
 public class GitShow {
     private static final String GIT_SHOW_CMD = "git show %1$s %2$s";
-    public GitCommitInfo run(final String commitId) throws Exception {
+
+    public GitCommitInfo run(final String commitId) {
         if (StringUtils.isBlank(commitId)) throw new NullPointerException("commitId");
         return CmdRunner.run(() -> String.format(GIT_SHOW_CMD, commitId, GitCommitInfo.CMD_PARAM),
                 cmdRes -> new GitCommitInfo(commitId, cmdRes));

@@ -11,9 +11,9 @@ import org.apache.commons.lang3.StringUtils;
 public class P4Describe {
     public static final String P4_CHANGES_CMD = "p4 describe -s %s";
 
-    public static P4ChangeListInfo run(final String parameters, final String p4Depo) throws Exception {
+    public static P4ChangeListInfo run(final String parameters, final String p4Depot) {
         final String cmdParams = StringUtils.isBlank(parameters) ? "" : parameters;
         return CmdRunner.run(() -> String.format(P4_CHANGES_CMD, cmdParams),
-                cmdRes -> new P4ChangeListInfo(cmdRes, p4Depo));
+                cmdRes -> new P4ChangeListInfo(cmdRes, p4Depot));
     }
 }

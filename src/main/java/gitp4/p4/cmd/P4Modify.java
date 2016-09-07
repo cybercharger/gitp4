@@ -1,7 +1,23 @@
 package gitp4.p4.cmd;
 
+import gitp4.CmdRunner;
+import org.apache.commons.lang3.StringUtils;
+
 /**
  * Created by chriskang on 9/6/2016.
  */
-public class P4Modify {
+class P4Modify {
+    enum ModifyAction {
+        add,
+        edit
+    }
+
+    private static final String CMD_FMT = "p4 %3$s -c %1$s %2$s";
+
+    public static void run(ModifyAction action, String file, String changelist) {
+        if (action == null) throw new NullPointerException("action");
+        if (StringUtils.isBlank(file)) throw new NullPointerException("file");
+        if (StringUtils.isBlank(changelist)) throw new NullPointerException("changelist");
+        CmdRunner.run(() -> String.format(CMD_FMT, changelist, file, action), cmdRes -> "");
+    }
 }
