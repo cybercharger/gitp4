@@ -98,6 +98,15 @@ class GitP4Bridge {
             throw new IllegalStateException("This folder is already initialized for git or cloned from p4 repo");
         }
 
+        P4RepositoryInfo repoInfo = new P4RepositoryInfo(parameters.get(0));
+
+        List<P4FileOpenedInfo> p4Opened = P4Opened.run(repoInfo.getPathWithSubContents());
+        if (p4Opened != null && !p4Opened.isEmpty()) {
+            String[] files = p4Opened.stream().map(P4FileOpenedInfo::getFile).toArray(String[]::new);
+            logger.error(String.format("Please submit or revert the following p4 opened files and try again.\n%s",
+            StringUtils.join(files, "\n")));
+            return;
+        }
 
         logger.info("Git init current directory...");
         GitInit.run("");
@@ -109,8 +118,6 @@ class GitP4Bridge {
         }
 
         logger.info(String.format("Totally %d changelist(s) to clone", p4Changes.size()));
-
-        P4RepositoryInfo repoInfo = new P4RepositoryInfo(parameters.get(0));
 
         createGitP4Directory(repoInfo, "0");
         applyP4Changes(p4Changes, repoInfo);
@@ -134,6 +141,14 @@ class GitP4Bridge {
         List<P4ChangeInfo> p4Changes = P4Changes.run(String.format(GIT_P4_SYNC_CMD_FMT, repoInfo.getPath(), lastChangelist));
         if (p4Changes.isEmpty()) {
             logger.info("files are up to date");
+            return;
+        }
+
+        List<P4FileOpenedInfo> p4Opened = P4Opened.run(repoInfo.getPathWithSubContents());
+        if (p4Opened != null && !p4Opened.isEmpty()) {
+            String[] files = p4Opened.stream().map(P4FileOpenedInfo::getFile).toArray(String[]::new);
+            logger.error(String.format("Please submit or revert the following p4 opened files and try again.\n%s",
+                    StringUtils.join(files, "\n")));
             return;
         }
 
@@ -175,7 +190,8 @@ class GitP4Bridge {
         List<P4FileOpenedInfo> p4Opened = P4Opened.run(p4Repo.getPathWithSubContents());
 
         if (p4Opened != null && !p4Opened.isEmpty()) {
-            logger.info("=== p4 opened files ===");
+            String[] p4OpenedFiles = p4Opened.stream().map(P4FileOpenedInfo::getFile).toArray(String[]::new);
+            logger.info(String.format("p4 opened files:\n%s", StringUtils.join(p4OpenedFiles, "\n")));
             p4Opened.forEach(cur -> logger.info(cur.getFile()));
             Object[] intersection = p4Opened.stream().filter(cur -> {
                 String file = cur.getFile().replace(p4Repo.getPath(), "");
