@@ -78,7 +78,7 @@ class GitP4Bridge {
         try {
             methodMap.get(args[0]).method.invoke(this, newArgs);
         } catch (Exception e) {
-            logger.error(e);
+            logger.error("Error occurred: ", e);
         }
     }
 
