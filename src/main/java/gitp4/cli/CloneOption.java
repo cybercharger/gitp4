@@ -17,7 +17,7 @@ public class CloneOption extends GitP4OperationOption {
     private final static String VIEW_ARG = "view-map";
 
     public CloneOption(String[] args) {
-        super(args);
+        super("clone", args);
         Option cloneString = new Option("c", CLONE_ARG, true, "root p4 repository path");
         cloneString.setArgName(CLONE_ARG);
         cloneString.setRequired(true);

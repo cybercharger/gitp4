@@ -1,6 +1,6 @@
 package gitp4;
 
-import gitp4.cli.CloneOption;
+import gitp4.cli.*;
 import gitp4.git.GitFileInfo;
 import gitp4.git.GitLogInfo;
 import gitp4.git.cmd.*;
@@ -46,22 +46,22 @@ class GitP4Bridge {
     private static final char SLASH = '/';
 
     private static class MethodInfo {
-        final int paramNum;
+        final Class<? extends GitP4OperationOption> optionClass;
         final Method method;
 
-        MethodInfo(int paramNum, Method method) {
-            this.paramNum = paramNum;
+        MethodInfo(Class<? extends GitP4OperationOption> option, Method method) {
+            this.optionClass = option;
             this.method = method;
         }
     }
 
 
-    void operate(String[] args) throws InvocationTargetException, IllegalAccessException {
+    void operate(String[] args) throws InvocationTargetException, IllegalAccessException, InstantiationException, NoSuchMethodException {
         Map<String, MethodInfo> methodMap = new HashMap<>();
         for (Method m : GitP4Bridge.class.getDeclaredMethods()) {
             GitP4Operation gpo = m.getAnnotation(GitP4Operation.class);
             if (gpo == null) continue;
-            methodMap.put(m.getName(), new MethodInfo(gpo.paramNum(), m));
+            methodMap.put(m.getName(), new MethodInfo(gpo.option(), m));
         }
 
         if (args.length < 1 || !methodMap.containsKey(args[0])) {
@@ -69,15 +69,11 @@ class GitP4Bridge {
             return;
         }
 
-        int requiredParamNum = methodMap.get(args[0]).paramNum;
-
-        if (args.length < requiredParamNum + 1) {
-            logError(methodMap.keySet());
-            return;
-        }
-        List<String> newArgs = requiredParamNum > 0 ? Arrays.asList(Arrays.copyOfRange(args, 1, args.length)) : null;
         try {
-            methodMap.get(args[0]).method.invoke(this, newArgs);
+            String[] newArgs = Arrays.copyOfRange(args, 1, args.length);
+            GitP4OperationOption option = methodMap.get(args[0]).optionClass.getDeclaredConstructor(String[].class).newInstance(new Object[]{newArgs});
+            option.parse();
+            methodMap.get(args[0]).method.invoke(this, option);
         } catch (Exception e) {
             if (!logException(e)) {
                 logger.error("Unknown error occurred: ", e);
@@ -102,20 +98,26 @@ class GitP4Bridge {
     private static void logError(Set<String> operations) {
         logger.error("Please provide operation and proper parameters");
         logger.error(String.format("Valid operations are: \n%s", StringUtils.join(operations, "\n")));
+        logger.error("Please type <operation> --help for details");
     }
 
-    @GitP4Operation(paramNum = 2)
-    private void mock(List<String> args) {
-        System.out.print(String.format("first param is: %1$s, second param is: %2$s", args.get(0), args.get(1)));
+    @GitP4Operation(option = MockOption.class)
+    private void mock(GitP4OperationOption input) {
+        if (input == null) throw new NullPointerException("input");
+
+        MockOption option = MockOption.class.cast(input);
+
+        System.out.print(option.getMock());
     }
 
-    private String init(List<String> parameters) throws Exception {
+    private String init(CloneOption option) throws Exception {
+
         if (Files.exists(gitDirPath) || Files.exists(gitP4DirPath)) {
             throw new GitP4Exception("This folder is already initialized for git or cloned from p4 repo");
         }
 
-        CloneOption option = new CloneOption(parameters.toArray(new String[parameters.size()]));
-        option.parse();
+        if (option == null) throw new NullPointerException("option");
+
         logger.info("p4 root is " + (new P4RepositoryInfo(option.getCloneString())).getPath());
         String[] map = option.getViewMap().stream()
                 .map(cur -> String.format("%1$s/%2$s/...", option.getCloneString(), cur))
@@ -152,9 +154,9 @@ class GitP4Bridge {
         return option.getCloneString();
     }
 
-    @GitP4Operation(paramNum = 1)
-    private void clone(List<String> parameters) throws Exception {
-        String cloneString = init(parameters);
+    @GitP4Operation(option = CloneOption.class)
+    private void clone(CloneOption option) throws Exception {
+        String cloneString = init(option);
         logger.info("p4 clone " + cloneString);
         List<P4ChangeInfo> p4Changes = P4Changes.run(cloneString);
         if (p4Changes.isEmpty()) {
@@ -173,8 +175,8 @@ class GitP4Bridge {
         GitCheckout.run(String.format("-b %s", p4IntBranchName));
     }
 
-    @GitP4Operation(paramNum = 0)
-    private void sync(List<String> parameters) throws Exception {
+    @GitP4Operation(option = EmptyOption.class)
+    private void sync(EmptyOption option) throws Exception {
         if (!Files.exists(gitP4ConfigFilePath)) {
             throw new IllegalStateException("Please run git p4 clone first");
         }
@@ -202,8 +204,8 @@ class GitP4Bridge {
         updateGitP4Config();
     }
 
-    @GitP4Operation(paramNum = 1)
-    private void submit(List<String> parameters) throws Exception {
+    @GitP4Operation(option = EmptyOption.class)
+    private void submit(SubmitOption option) throws Exception {
         GitLogInfo latest = GitLog.getLatestCommit();
         logger.info("Commits submitted upto " + latest.getCommit());
         final String range = String.format("%1$s..%2$s", lastSubmitTag, latest.getCommit());
@@ -299,7 +301,7 @@ class GitP4Bridge {
 //        logger.info(String.format("p4 add:\n%s", StringUtils.join(addSet, "\n")));
 //        logger.info(String.format("copy map\n%s", StringUtils.join(copyMap.entrySet(), "\n")));
 
-        String p4cl = P4Change.createEmptyChangeList(parameters.get(0));
+        String p4cl = P4Change.createEmptyChangeList(option.getMessage());
 
         pagedActionOnFiles(editSet, cur -> P4Edit.run(cur, p4cl), "p4 edit...");
 

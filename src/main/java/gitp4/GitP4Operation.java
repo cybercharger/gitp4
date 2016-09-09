@@ -1,5 +1,7 @@
 package gitp4;
 
+import gitp4.cli.GitP4OperationOption;
+
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -10,6 +12,6 @@ import java.lang.annotation.Target;
  */
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
-public @interface GitP4Operation {
-    int paramNum();
+@interface GitP4Operation {
+    Class<? extends GitP4OperationOption> option();
 }

@@ -1,5 +1,6 @@
 package gitp4;
 
+import gitp4.cli.*;
 import gitp4.console.Progress;
 import junit.framework.Assert;
 import org.junit.After;
@@ -33,10 +34,10 @@ public class GitP4BridgeTest {
     }
 
     @Test
-    public void testGitP4BridgeMock() throws InvocationTargetException, IllegalAccessException {
+    public void testGitP4BridgeMock() throws InvocationTargetException, IllegalAccessException, NoSuchMethodException, InstantiationException {
         GitP4Bridge bridge = new GitP4Bridge();
-        bridge.operate(new String[] {"mock", "arg1", "arg2"});
-        Assert.assertEquals("first param is: arg1, second param is: arg2", myOut.toString());
+        bridge.operate(new String[] {"mock", "--mock", "mock-message"});
+        Assert.assertEquals("mock-message", myOut.toString());
     }
 
     @Test
@@ -49,23 +50,34 @@ public class GitP4BridgeTest {
         System.out.print(a.isPresent() ? a.get() : new Integer(0));
         Assert.assertEquals("1,10,10", myOut.toString());
     }
-//
-//    @Test
-//    public void testProgress() {
-//        Progress p = new Progress(1000);
-//        p.show();
-//        Assert.assertEquals("0% [0/1000]", myOut.toString());
-//
-//        p.progress(100);
-//        Assert.assertEquals("10% [100/1000]", myOut.toString());
-//
-//        p.progress(500);
-//        Assert.assertEquals("50% [500/1000]", myOut.toString());
-//
-//        p.progress(999);
-//        Assert.assertEquals("0% [0/1000]", myOut.toString());
-//
-//        p.progress(1000);
-//        Assert.assertEquals("", myOut.toString());
-//    }
+
+    @Test
+    public void testOptions() {
+        String[] args = new String[] {"-c", "clone", "-v", "views"};
+        GitP4OperationOption option = new CloneOption(args);
+        option.parse();
+        Assert.assertEquals("clone", ((CloneOption)option).getCloneString());
+        Assert.assertEquals("views", ((CloneOption)option).getViewString());
+
+        args = new String[] {"--clone-string", "clone", "--view-map", "views"};
+        option = new CloneOption(args);
+        option.parse();
+        Assert.assertEquals("clone", ((CloneOption)option).getCloneString());
+        Assert.assertEquals("views", ((CloneOption)option).getViewString());
+
+        args = new String[] {"--message", "submit message"};
+        option = new SubmitOption(args);
+        option.parse();
+        Assert.assertEquals("submit message", ((SubmitOption)option).getMessage());
+
+        args = new String[] {"-m", "submit message"};
+        option = new SubmitOption(args);
+        option.parse();
+        Assert.assertEquals("submit message", ((SubmitOption)option).getMessage());
+
+        args = new String[] {"-m", "mock message"};
+        option = new MockOption(args);
+        option.parse();
+        Assert.assertEquals("mock message", ((MockOption)option).getMock());
+    }
 }
