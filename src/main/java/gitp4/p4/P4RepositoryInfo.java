@@ -1,8 +1,8 @@
 package gitp4.p4;
 
+import gitp4.GitP4Exception;
 import gitp4.p4.cmd.P4Where;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.log4j.Logger;
 
 import java.util.Arrays;
 import java.util.List;
@@ -13,6 +13,7 @@ import java.util.regex.Pattern;
  * Created by chriskang on 8/24/2016.
  */
 public class P4RepositoryInfo {
+    public static final String SLASH = "/";
     public static final String TRIPLE_DOTS = "...";
     private static final String VALID_PATH_HINT = "Supported formats are:\n" +
             "//path/to/your/repository/...\n" +
@@ -34,18 +35,22 @@ public class P4RepositoryInfo {
     private static String parsePath(String path) {
         if (StringUtils.isBlank(path)) throw new NullPointerException("path");
         if (!path.contains(TRIPLE_DOTS)) {
-            throw new IllegalArgumentException(String.format("%1$s is not a supported format for p4 repo. %2$s",
+            throw new GitP4Exception(String.format("%1$s is not a supported format for p4 repo. %2$s",
                     path, VALID_PATH_HINT));
         }
         String[] sections = StringUtils.split(path, TRIPLE_DOTS);
         if (sections.length == 2) {
             Optional<Pattern> optional = Arrays.stream(rangePatterns).filter(cur -> cur.matcher(sections[1]).matches()).findFirst();
             if (!optional.isPresent()) {
-                throw new IllegalArgumentException(String.format("%1$s is not a supported format for p4 repo. %2$s",
+                throw new GitP4Exception(String.format("%1$s is not a supported format for p4 repo. %2$s",
                         path, VALID_PATH_HINT));
             }
         } else if (sections.length != 1) {
-            throw new IllegalArgumentException(String.format("%1$s is not a supported format for p4 repo. %2$s",
+            throw new GitP4Exception(String.format("%1$s is not a supported format for p4 repo. %2$s",
+                    path, VALID_PATH_HINT));
+        }
+        if (!sections[0].endsWith(SLASH)) {
+            throw new GitP4Exception(String.format("%1$s is not a supported format for p4 repo. %2$s",
                     path, VALID_PATH_HINT));
         }
 

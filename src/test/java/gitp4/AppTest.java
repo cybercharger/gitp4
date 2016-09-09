@@ -184,8 +184,25 @@ public class AppTest {
 
         Exception exp = null;
         try {
+            new P4RepositoryInfo("//nucleus/SANDBOX/catalog...");
+        } catch (GitP4Exception e) {
+            exp = e;
+        }
+        Assert.assertNotNull(exp);
+
+
+        try {
+            new P4RepositoryInfo("//nucleus/SANDBOX/catalog...@265261,@265261");
+        } catch (GitP4Exception e) {
+            exp = e;
+        }
+        Assert.assertNotNull(exp);
+
+
+        exp = null;
+        try {
             new P4RepositoryInfo("//nucleus/SANDBOX/catalog/");
-        } catch (IllegalArgumentException e) {
+        } catch (GitP4Exception e) {
             exp = e;
         }
         Assert.assertNotNull(exp);
@@ -193,7 +210,7 @@ public class AppTest {
         exp = null;
         try {
             new P4RepositoryInfo("//nucleus/SANDBOX/catalog/...@123, @234");
-        } catch (IllegalArgumentException e) {
+        } catch (GitP4Exception e) {
             exp = e;
         }
         Assert.assertNotNull(exp);
@@ -201,7 +218,7 @@ public class AppTest {
         exp = null;
         try {
             new P4RepositoryInfo("//nucleus/SANDBOX/catalog/...#head,@234");
-        } catch (IllegalArgumentException e) {
+        } catch (GitP4Exception e) {
             exp = e;
         }
         Assert.assertNotNull(exp);
