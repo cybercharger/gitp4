@@ -53,16 +53,16 @@ public class GitP4BridgeTest {
 
     @Test
     public void testOptions() {
-        String[] args = new String[] {"-c", "clone", "-v", "views"};
+        String[] args = new String[] {"-v", "views", "//nucleus/SANDBOX/catalog/..."};
         GitP4OperationOption option = new CloneOption(args);
         option.parse();
-        Assert.assertEquals("clone", ((CloneOption)option).getCloneString());
+        Assert.assertEquals("//nucleus/SANDBOX/catalog/...", ((CloneOption)option).getCloneString());
         Assert.assertEquals("views", ((CloneOption)option).getViewString());
 
-        args = new String[] {"--clone-string", "clone", "--view-map", "views"};
+        args = new String[] {"//nucleus/SANDBOX/catalog/...", "--view-map", "views"};
         option = new CloneOption(args);
         option.parse();
-        Assert.assertEquals("clone", ((CloneOption)option).getCloneString());
+        Assert.assertEquals("//nucleus/SANDBOX/catalog/...", ((CloneOption)option).getCloneString());
         Assert.assertEquals("views", ((CloneOption)option).getViewString());
 
         args = new String[] {"--message", "submit message"};

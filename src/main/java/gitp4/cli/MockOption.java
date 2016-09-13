@@ -10,7 +10,7 @@ public class MockOption extends GitP4OperationOption {
     private static final String MOCK_ARG = "mock";
     public MockOption(String[] args) {
         super("mock", args);
-        Option mock = new Option("m", MOCK_ARG, true, "submit message");
+        Option mock = new Option("m", MOCK_ARG, true, "mock message");
         mock.setArgName(MOCK_ARG);
         mock.setRequired(true);
         super.options.addOption(mock);

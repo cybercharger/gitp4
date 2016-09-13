@@ -10,10 +10,12 @@ public class SubmitOption extends GitP4OperationOption {
 
     public SubmitOption(String[] args) {
         super("submit", args);
-        Option comment = new Option("m", MSG_ARG, true, "submit message");
-        comment.setArgName(MSG_ARG);
-        comment.setRequired(true);
-        super.options.addOption(comment);
+        super.options.addOption(Option.builder("m")
+                .argName(MSG_ARG)
+                .longOpt(MSG_ARG)
+                .hasArg()
+                .required()
+                .build());
     }
 
     public String getMessage() {
