@@ -125,7 +125,7 @@ class GitP4Bridge {
         P4RepositoryInfo repoInfo = new P4RepositoryInfo(option.getCloneString());
         logger.info("p4 root is " + repoInfo.getPathWithSubContents());
 
-        List<P4FileOpenedInfo> p4Opened = P4Opened.run(option.getCloneString());
+        List<P4FileOpenedInfo> p4Opened = P4Opened.run(repoInfo.getPathWithSubContents());
         if (p4Opened != null && !p4Opened.isEmpty()) {
             String[] files = p4Opened.stream().map(P4FileOpenedInfo::getFile).toArray(String[]::new);
             String msg = String.format("Please submit or revert the following p4 opened files and try again.\n%s",
@@ -143,11 +143,11 @@ class GitP4Bridge {
         config.setProperty(GitP4Config.viewMap, option.getViewString());
         config.setProperty(GitP4Config.lastSync, "-1");
         GitP4Config.save(config, gitP4ConfigFilePath, ".gitp4 config");
-        updateGitP4Config();
 
 
         logger.info("Git init current directory...");
         GitInit.run("");
+        updateGitP4Config();
 
         String[] map = option.getViewMap().stream()
                 .map(cur -> String.format("%1$s%2$s/...", repoInfo.getPath(), cur))
@@ -163,7 +163,7 @@ class GitP4Bridge {
         logger.info("cloning " + cloneString);
         List<P4ChangeInfo> p4Changes = P4Changes.run(cloneString);
         if (p4Changes.isEmpty()) {
-            logger.warn("There is nothing to clone from p4 repo, forgot to log in?");
+            logger.warn("There is nothing to clone from p4 repo");
             return;
         }
 
@@ -312,10 +312,8 @@ class GitP4Bridge {
 
         List<Callable<Boolean>> theCallable = new LinkedList<>();
         for (Map.Entry<String, String> entry : copyMap.entrySet()) {
-            Utils.createDirRecursively(entry.getValue(), File.separatorChar, e -> {
-                throw new RuntimeException(e);
-            });
 
+            Files.createDirectories(Paths.get(entry.getValue()).getParent());
 
             theCallable.add(() -> {
                 try {
@@ -416,10 +414,6 @@ class GitP4Bridge {
 
         logger.info("creating necessary dirs...");
         for (String target : addFiles) {
-//            Utils.createDirRecursively(target, SLASH, e -> {
-//                logger.error(e);
-//                throw new RuntimeException(e);
-//            });
             Files.createDirectories(Paths.get(target).getParent());
         }
 

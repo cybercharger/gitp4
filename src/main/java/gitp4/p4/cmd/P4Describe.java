@@ -13,7 +13,7 @@ public class P4Describe {
 
     public static P4ChangeListInfo run(final String parameters, final String p4Depot) {
         final String cmdParams = StringUtils.isBlank(parameters) ? "" : parameters;
-        return CmdRunner.run(() -> String.format(P4_CHANGES_CMD, cmdParams),
+        return CmdRunner.getP4CmdRunner().run(() -> String.format(P4_CHANGES_CMD, cmdParams),
                 cmdRes -> new P4ChangeListInfo(cmdRes, p4Depot));
     }
 }

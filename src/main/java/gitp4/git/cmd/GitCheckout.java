@@ -10,6 +10,6 @@ public class GitCheckout {
 
     public static void run(final String parameters) {
         if (parameters == null || parameters.isEmpty()) throw new NullPointerException("parameters");
-        CmdRunner.run(() -> String.format(GIT_CHECKOUT_CMD, parameters), (cmdRes) -> "");
+        CmdRunner.getGitCmdRunner().run(() -> String.format(GIT_CHECKOUT_CMD, parameters), (cmdRes) -> "");
     }
 }

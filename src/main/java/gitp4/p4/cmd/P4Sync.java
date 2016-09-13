@@ -13,6 +13,6 @@ public class P4Sync {
     public static void forceSyncTo(P4RepositoryInfo repoInfo, String changelist) {
         if (repoInfo == null) throw new NullPointerException("repoInfo");
         if (StringUtils.isBlank(changelist)) throw new NullPointerException("changelist");
-        CmdRunner.run(() -> String.format(FORCE_SYNC_TO_CMD, repoInfo.getPathWithSubContents(), changelist), cmdRes -> "");
+        CmdRunner.getP4CmdRunner().run(() -> String.format(FORCE_SYNC_TO_CMD, repoInfo.getPathWithSubContents(), changelist), cmdRes -> "");
     }
 }

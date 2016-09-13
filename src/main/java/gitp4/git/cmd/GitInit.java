@@ -11,6 +11,6 @@ public class GitInit {
 
     public static void run(final String parameters) {
         final String cmdParams = StringUtils.isBlank(parameters) ? "" : parameters;
-        CmdRunner.run(() -> String.format(GIT_INIT_CMD, cmdParams), cmdRes -> "");
+        CmdRunner.getGitCmdRunner().run(() -> String.format(GIT_INIT_CMD, cmdParams), cmdRes -> "");
     }
 }

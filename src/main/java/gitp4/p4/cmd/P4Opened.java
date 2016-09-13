@@ -16,7 +16,7 @@ public class P4Opened {
 
     public static List<P4FileOpenedInfo> run(String p4Repo) {
         if (StringUtils.isBlank(p4Repo)) throw new NullPointerException("p4Repo");
-        return CmdRunner.run(() -> String.format(P4_CMD_STR, p4Repo),
+        return CmdRunner.getP4CmdRunner().run(() -> String.format(P4_CMD_STR, p4Repo),
                 cmdRes -> cmdRes.stream().
                         map(P4FileOpenedInfo::create).
                         filter(cur -> cur != null).

@@ -1,13 +1,16 @@
 package gitp4;
 
-import gitp4.console.Progress;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.*;
+import java.util.function.BiConsumer;
 
 
 /**
@@ -31,7 +34,7 @@ public class CommandRunner {
         }
     }
 
-    public static List<String> runCommand(String cmd, String input) throws IOException, InterruptedException, ExecutionException {
+    public static List<String> runCommand(String cmd, String input, BiConsumer<String, List<String>> onError) throws IOException, InterruptedException, ExecutionException {
         Process p = Runtime.getRuntime().exec(cmd);
         if (!StringUtils.isBlank(input)) {
             logger.debug("Input: \n" + input);
@@ -57,7 +60,11 @@ public class CommandRunner {
         errReader.close();
 
         if (!error.isEmpty()) {
-            logger.debug(String.format("[Error or Warning] of running %1$s\n%2$s", cmd, StringUtils.join(error, "\n")));
+            if (onError != null) {
+                onError.accept(cmd, error);
+            }else {
+                logger.debug(String.format("[Error or Warning] of running %1$s\n%2$s", cmd, StringUtils.join(error, "\n")));
+            }
         }
         return result;
     }

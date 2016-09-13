@@ -12,6 +12,6 @@ public class P4Delete {
     public static void run(String files, String changelist) {
         if (StringUtils.isBlank(files)) throw new NullPointerException("files");
         if (StringUtils.isBlank(changelist)) throw new NullPointerException("changelist");
-        CmdRunner.run(() -> String.format(CMD_FMT, changelist, files), cmdRes -> "");
+        CmdRunner.getP4CmdRunner().run(() -> String.format(CMD_FMT, changelist, files), cmdRes -> "");
     }
 }

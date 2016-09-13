@@ -14,7 +14,7 @@ public class GitTag {
     public static void run(final String tagName, final String comments) {
         if (StringUtils.isBlank(tagName)) throw new NullPointerException("tagName");
         if (StringUtils.isBlank(comments)) throw new NullPointerException("comments");
-        CmdRunner.run(() -> String.format(GIT_TAG_CMD, tagName, comments),
+        CmdRunner.getGitCmdRunner().run(() -> String.format(GIT_TAG_CMD, tagName, comments),
                 (cmdRes) -> {
                     if (cmdRes != null && !cmdRes.isEmpty()) {
                         Logger.getLogger(GitTag.class).error("Failed to create tag " + tagName);

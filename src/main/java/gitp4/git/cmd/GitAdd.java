@@ -10,6 +10,6 @@ public class GitAdd {
 
     public static void run(final String files) {
         if (files == null || files.isEmpty()) throw new NullPointerException("files");
-        CmdRunner.run(() -> String.format(GIT_ADD_CMD, files), (cmdRes) -> "");
+        CmdRunner.getGitCmdRunner().run(() -> String.format(GIT_ADD_CMD, files), (cmdRes) -> "");
     }
 }

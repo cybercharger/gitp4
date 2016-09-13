@@ -15,11 +15,11 @@ public class P4Fstat {
     public static P4FileStatInfo getChangelistStats(String changlist, P4RepositoryInfo repoInfo) {
         if (StringUtils.isBlank(changlist)) throw new NullPointerException("changelist");
         if (repoInfo == null) throw new NullPointerException("repoInfo");
-        return CmdRunner.run(() -> String.format(FSTAT_CL_CMD, changlist, repoInfo.getPathWithSubContents()), P4FileStatInfo::create);
+        return CmdRunner.getP4CmdRunner().run(() -> String.format(FSTAT_CL_CMD, changlist, repoInfo.getPathWithSubContents()), P4FileStatInfo::create);
     }
 
     public static P4FileStatInfo getFileStats(String files) {
         if (StringUtils.isBlank(files)) throw new NullPointerException("changelist");
-        return CmdRunner.run(() -> String.format(FSTAT_FILE_CMD, files), P4FileStatInfo::create);
+        return CmdRunner.getP4CmdRunner().run(() -> String.format(FSTAT_FILE_CMD, files), P4FileStatInfo::create);
     }
 }

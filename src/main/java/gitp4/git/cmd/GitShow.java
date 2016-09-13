@@ -12,7 +12,7 @@ public class GitShow {
 
     public GitCommitInfo run(final String commitId) {
         if (StringUtils.isBlank(commitId)) throw new NullPointerException("commitId");
-        return CmdRunner.run(() -> String.format(GIT_SHOW_CMD, commitId, GitCommitInfo.CMD_PARAM),
+        return CmdRunner.getGitCmdRunner().run(() -> String.format(GIT_SHOW_CMD, commitId, GitCommitInfo.CMD_PARAM),
                 cmdRes -> new GitCommitInfo(commitId, cmdRes));
     }
 }

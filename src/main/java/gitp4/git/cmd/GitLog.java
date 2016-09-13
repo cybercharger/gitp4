@@ -20,7 +20,7 @@ public class GitLog {
 
     public static List<GitLogInfo> run(final String rangeInfo) {
         validateInput(rangeInfo);
-        return CmdRunner.run(() -> String.format(GIT_LOG_CMD, GitLogInfo.CMD_PARAM, rangeInfo),
+        return CmdRunner.getGitCmdRunner().run(() -> String.format(GIT_LOG_CMD, GitLogInfo.CMD_PARAM, rangeInfo),
                 (cmdRes) -> {
                     List<GitLogInfo> result = new LinkedList<>();
                     cmdRes.forEach(cur -> result.add(0, new GitLogInfo(cur)));
@@ -30,7 +30,7 @@ public class GitLog {
 
     public static List<GitFileInfo> getAllChangedFiles(final String rangeInfo) {
         validateInput(rangeInfo);
-        return CmdRunner.run(() -> String.format(GIT_LOG_CMD, GitFileInfo.CMD_PARAM, rangeInfo),
+        return CmdRunner.getGitCmdRunner().run(() -> String.format(GIT_LOG_CMD, GitFileInfo.CMD_PARAM, rangeInfo),
                 (cmdRes) -> {
                     List<GitFileInfo> result = new LinkedList<>();
                     cmdRes.forEach(cur -> result.add(0, new GitFileInfo(cur)));
@@ -39,7 +39,7 @@ public class GitLog {
     }
 
     public static GitLogInfo getLatestCommit() {
-        return CmdRunner.run(() -> GIT_LOG_LATEST_COMMIT,
+        return CmdRunner.getGitCmdRunner().run(() -> GIT_LOG_LATEST_COMMIT,
                 cmdRes -> {
                     if (cmdRes == null || cmdRes.size() != 1) {
                         throw new IllegalStateException(String.format("Error return of running git log -1: %s",

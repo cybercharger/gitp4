@@ -19,7 +19,7 @@ public class P4Change {
     public static String createEmptyChangeList(String description) {
         if (StringUtils.isBlank(description)) throw new NullPointerException("des");
 
-        List<String> spec = CmdRunner.run(() -> "p4 change -o", cmdRes -> cmdRes);
+        List<String> spec = CmdRunner.getP4CmdRunner().run(() -> "p4 change -o", cmdRes -> cmdRes);
         List<String> newSpec = new LinkedList<>();
         for (String line : spec) {
             if (line.contains("<enter description here>")) break;
@@ -28,7 +28,7 @@ public class P4Change {
         newSpec.add("\t" + description);
 
         final String cmd = CREATE_EMPTY_CL_CMD;
-        return CmdRunner.run(() -> cmd,
+        return CmdRunner.getP4CmdRunner().run(() -> cmd,
                 cmdRes -> {
                     if (cmdRes == null || cmdRes.size() != 1) {
                         throw new IllegalStateException(String.format("Invalid return of running '%s'", cmd));

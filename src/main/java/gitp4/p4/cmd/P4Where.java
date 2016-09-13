@@ -13,6 +13,6 @@ public class P4Where {
 
     public static List<String> run(String input) {
         if (StringUtils.isBlank(input)) throw new NullPointerException("input");
-        return CmdRunner.run(() -> String.format(CMD_FMT, input), cmdRes -> cmdRes);
+        return CmdRunner.getP4CmdRunner().run(() -> String.format(CMD_FMT, input), cmdRes -> cmdRes);
     }
 }

@@ -16,7 +16,7 @@ public class P4Changes {
     public static List<P4ChangeInfo> run(final String parameters) {
         String cmdParams = StringUtils.isBlank(parameters) ? "" : parameters;
 
-        return CmdRunner.run(() -> String.format(P4_CHANGES_CMD, cmdParams),
+        return CmdRunner.getP4CmdRunner().run(() -> String.format(P4_CHANGES_CMD, cmdParams),
                 (cmdRes) -> {
                     LinkedList<P4ChangeInfo> result = new LinkedList<>();
                     cmdRes.forEach(cur -> result.add(0, P4ChangeInfo.create(cur)));
