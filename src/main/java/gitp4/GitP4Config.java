@@ -9,10 +9,13 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Properties;
+import java.util.Set;
 import java.util.function.BiFunction;
-import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Created by chriskang on 8/25/2016.
@@ -21,6 +24,7 @@ public class GitP4Config {
     public static final String p4Repo = "gitp4.p4repo";
     public static final String viewMap = "gitp4.viewmap";
     public static final String lastSync = "gitp4.last.sync";
+    public static final String submitIgnore = "gitp4.submit.ignore";
     public final static char COMMA = ',';
 
     static Properties load(Path filePath) throws IOException {
@@ -39,21 +43,27 @@ public class GitP4Config {
     }
 
     static Set<String> getViewsWithRoot(Path filePath) throws IOException {
-        return getViews(filePath, (viewString, config) -> {
+        return getPropertySet(filePath, viewMap, (views, config) -> {
             String root = new P4RepositoryInfo(config.getProperty(p4Repo)).getPath();
-            return Arrays.stream(StringUtils.split(viewString, COMMA)).map(cur -> root + cur).collect(Collectors.toSet());
+            return views.map(cur -> root + cur).collect(Collectors.toSet());
         });
     }
 
     static Set<String> getViews(Path filePath) throws IOException {
 
-        return getViews(filePath, (viewString, config) -> Arrays.stream(StringUtils.split(viewString, COMMA)).collect(Collectors.toSet()));
+        return getPropertySet(filePath, viewMap, (views, config) -> views.collect(Collectors.toSet()));
     }
 
-    private static Set<String> getViews(Path filePath, BiFunction<String, Properties, Set<String>> mapper) throws IOException {
+    static Set<String> getSubmitIgnore(Path filePath) throws IOException {
+        return getPropertySet(filePath, submitIgnore, (ignored, config) -> ignored.collect(Collectors.toSet()));
+    }
+
+    private static Set<String> getPropertySet(Path filePath,
+                                              String propertyName,
+                                              BiFunction<Stream<String>, Properties, Set<String>> mapper) throws IOException {
         Properties config = load(filePath);
-        String viewString = config.getProperty(viewMap);
-        if (StringUtils.isBlank(viewString)) return Collections.emptySet();
-        return mapper.apply(viewString, config);
+        String property = config.getProperty(propertyName);
+        if (StringUtils.isBlank(property)) return Collections.emptySet();
+        return mapper.apply(Arrays.stream(StringUtils.split(property, COMMA)), config);
     }
 }

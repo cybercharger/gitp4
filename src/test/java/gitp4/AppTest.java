@@ -15,6 +15,9 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Unit test for simple App.
@@ -222,5 +225,19 @@ public class AppTest {
             exp = e;
         }
         Assert.assertNotNull(exp);
+    }
+
+    @Test
+    public void shouldBeRemoved() throws IOException {
+        Set<String> org = new HashSet<String>() {{
+            add("abc");
+            add("abd");
+            add("add");
+        }};
+        Set<String> ignore = new HashSet<String>() {{
+            add("add");
+        }};
+        org = org.stream().filter(cur -> !ignore.stream().filter(cur::startsWith).findAny().isPresent()).collect(Collectors.toSet());
+        org.forEach(System.out::println);
     }
 }

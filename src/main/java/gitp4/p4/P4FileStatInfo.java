@@ -1,5 +1,6 @@
 package gitp4.p4;
 
+import gitp4.GitP4Exception;
 import org.apache.commons.lang3.StringUtils;
 
 import java.util.*;
@@ -42,8 +43,11 @@ public class P4FileStatInfo {
             else if (line.startsWith(CLIENT_FILE_TAG)) clientFile = line.substring(CLIENT_FILE_TAG.length());
             else if (line.startsWith(REVISION_TAG)) revision = line.substring(REVISION_TAG.length());
         }
-        if (depotFile == null || clientFile == null || revision == null || operation == null) {
-            throw new IllegalStateException("Failed to parse file info from\n " + StringUtils.join(section, "\n"));
+        if (depotFile == null || revision == null || operation == null) {
+            throw new IllegalStateException("Failed to parse file info from\n" + StringUtils.join(section, "\n"));
+        }
+        if (clientFile == null) {
+            throw new GitP4Exception("Cannot find client file info, please check whether files are properly mapped to local client");
         }
         return new P4FileInfoEx(depotFile, clientFile, P4Operation.parse(operation), Integer.parseInt(revision));
     }

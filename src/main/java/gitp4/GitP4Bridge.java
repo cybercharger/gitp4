@@ -10,6 +10,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
 
 import java.io.File;
+import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
@@ -20,6 +21,7 @@ import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Created by chriskang on 8/24/2016.
@@ -37,13 +39,16 @@ class GitP4Bridge {
     private static final Path gitP4DirPath = Paths.get(".gitp4");
     private static final Path gitDirPath = Paths.get(".git");
     private static final Path gitP4ConfigFilePath = Paths.get(gitP4DirPath.toString(), "config");
+    private static final Set<Path> emptyCheckIgnore = new HashSet<Path>() {{
+        add(Paths.get(""));
+        add(Paths.get("gitp4.log"));
+    }};
 
     //TODO: move this to properties
     private static final int MAX_THREADS = 10;
     private static final int GIT_ADD_RM_PAGE_SIZE = 20;
     // delay in milliseconds after p4 sync -f @=
     private static final int P4_SYNC_DELAY = 1000;
-    private static final char SLASH = '/';
 
     private static class MethodInfo {
         final Class<? extends GitP4OperationOption> optionClass;
@@ -114,9 +119,11 @@ class GitP4Bridge {
 
         if (!option.bypassEmptyCheck()) {
             Path curDir = Paths.get("");
-            if (Files.newDirectoryStream(Paths.get("")).iterator().hasNext()) {
-                throw new GitP4Exception(String.format("%s is not empty", curDir.toAbsolutePath().normalize()));
-            }
+            Files.walk(curDir).forEach(cur -> {
+                if (!emptyCheckIgnore.contains(cur)) {
+                    throw new GitP4Exception(String.format("%s is not empty", curDir.toAbsolutePath().normalize()));
+                }
+            });
         }
         if (Files.exists(gitDirPath) || Files.exists(gitP4DirPath)) {
             throw new GitP4Exception("This folder is already initialized for git or cloned from p4 repo");
@@ -142,6 +149,7 @@ class GitP4Bridge {
         config.setProperty(GitP4Config.p4Repo, repoInfo.getPathWithSubContents());
         config.setProperty(GitP4Config.viewMap, option.getViewString());
         config.setProperty(GitP4Config.lastSync, "-1");
+        config.setProperty(GitP4Config.submitIgnore, gitP4ConfigFilePath.toString());
         GitP4Config.save(config, gitP4ConfigFilePath, ".gitp4 config");
 
 
@@ -152,8 +160,7 @@ class GitP4Bridge {
         String[] map = option.getViewMap().stream()
                 .map(cur -> String.format("%1$s%2$s/...", repoInfo.getPath(), cur))
                 .toArray(String[]::new);
-
-        logger.info("initialized for:\n" + StringUtils.join(map, "\n"));
+        if (map != null && map.length > 0) logger.info("initialized for:\n" + StringUtils.join(map, "\n"));
         return option.getCloneString();
     }
 
@@ -180,8 +187,9 @@ class GitP4Bridge {
 
     @GitP4Operation(option = EmptyOption.class)
     private void sync(EmptyOption option) throws Exception {
+        checkWorkingDir();
         if (!Files.exists(gitP4ConfigFilePath)) {
-            throw new IllegalStateException("Please run git p4 clone first");
+            throw new GitP4Exception("Please run git p4 clone first");
         }
         Properties config = GitP4Config.load(gitP4ConfigFilePath);
         int lastChangelist = Integer.parseInt(config.getProperty(GitP4Config.lastSync)) + 1;
@@ -209,6 +217,7 @@ class GitP4Bridge {
 
     @GitP4Operation(option = SubmitOption.class)
     private void submit(SubmitOption option) throws Exception {
+        checkWorkingDir();
         GitLogInfo latest = GitLog.getLatestCommit();
         logger.info("Commits submitted upto " + latest.getCommit());
         final String range = String.format("%1$s..%2$s", lastSubmitTag, latest.getCommit());
@@ -222,18 +231,21 @@ class GitP4Bridge {
         List<GitFileInfo> files = GitLog.getAllChangedFiles(range);
         Set<String> affectedFiles = new HashSet<>();
         Set<String> rawViews = GitP4Config.getViews(gitP4ConfigFilePath);
+        Set<String> ignored = GitP4Config.getSubmitIgnore(gitP4ConfigFilePath);
+        logger.info("ignore:");
+        ignored.forEach(logger::info);
         for (GitFileInfo info : files) {
             switch (info.getChangeType()) {
                 case Rename:
                     if (!rawViews.isEmpty() &&
                             !rawViews.stream().filter(cur -> info.getNewFile().startsWith(cur)).findAny().isPresent()) {
-                        throw new GitP4Exception(String.format("%s is not under the p4 map views, please update your ./gitp4/config", info.getOldFile()));
+                        throw new GitP4Exception(String.format("%s is not under the p4 map views, please update your .gitp4/config", info.getOldFile()));
                     }
                     affectedFiles.add(info.getNewFile());
                 case Add:
                     if (!rawViews.isEmpty() &&
                             !rawViews.stream().filter(cur -> info.getOldFile().startsWith(cur)).findAny().isPresent()) {
-                        throw new GitP4Exception(String.format("%s is not under the p4 map views, please update your ./gitp4/config", info.getOldFile()));
+                        throw new GitP4Exception(String.format("%s is not under the p4 map views, please update your .gitp4/config", info.getOldFile()));
                     }
                 case Delete:
                 case Modify:
@@ -243,6 +255,15 @@ class GitP4Bridge {
                     throw new IllegalArgumentException("Unknown git operation type " + info.getChangeType());
             }
         }
+
+        //TODO: make this more useful
+        affectedFiles = affectedFiles.stream().filter(cur -> !ignored.stream().filter(i -> {
+            String curPath = Paths.get(cur).toAbsolutePath().toString();
+            String ignore = Paths.get(i).toAbsolutePath().toString();
+            return curPath.startsWith(ignore);
+        }).findAny().isPresent()).collect(Collectors.toSet());
+
+        final Set<String> finalCopy = affectedFiles;
         Properties config = GitP4Config.load(gitP4ConfigFilePath);
         P4RepositoryInfo p4Repo = new P4RepositoryInfo(config.getProperty(GitP4Config.p4Repo) + P4RepositoryInfo.TRIPLE_DOTS);
         List<P4FileOpenedInfo> p4Opened = P4Opened.run(p4Repo.getPathWithSubContents());
@@ -250,15 +271,13 @@ class GitP4Bridge {
         if (p4Opened != null && !p4Opened.isEmpty()) {
             String[] p4OpenedFiles = p4Opened.stream().map(P4FileOpenedInfo::getFile).toArray(String[]::new);
             logger.info(String.format("p4 opened files:\n%s", StringUtils.join(p4OpenedFiles, "\n")));
-            p4Opened.forEach(cur -> logger.info(cur.getFile()));
             Object[] intersection = p4Opened.stream().filter(cur -> {
                 String file = cur.getFile().replace(p4Repo.getPath(), "");
-                return affectedFiles.contains(file);
+                return finalCopy.contains(file);
             }).toArray();
             if (intersection != null && intersection.length > 0) {
-                logger.warn(String.format("Conflict found, files also opened on p4 repo: \n%s", StringUtils.join(intersection, "\n")));
+                throw new GitP4Exception(String.format("Conflict found, files also opened on p4 repo: \n%s", StringUtils.join(intersection, "\n")));
             }
-            return;
         }
 
         Map<String, String> gitP4DepotFileMap = affectedFiles.stream()
@@ -267,26 +286,30 @@ class GitP4Bridge {
         Map<String, String> p4ExistingFiles = new HashMap<>();
 
         pagedActionOnFiles(gitP4DepotFileMap.values(),
-                cur -> P4Fstat.getFileStats(cur).getFiles().forEach(info -> p4ExistingFiles.put(info.getDepotFile(), info.getClientFile())),
+                cur -> P4Fstat.getFileStats(cur).getFiles().forEach(info -> {
+                    if (!P4Operation.delete.equals(info.getOperation())) // if the headAction is delete means this file has been deleted on P4
+                        p4ExistingFiles.put(info.getDepotFile(), info.getClientFile());
+                }),
                 "checking p4 files...");
 
         Map<String, String> copyMap = new HashMap<>();
         Set<String> editSet = new HashSet<>();
         Set<String> addSet = new HashSet<>();
         Set<String> deleteSet = new HashSet<>();
-        gitP4DepotFileMap.entrySet().forEach(cur -> {
+        for (Map.Entry<String, String> cur : gitP4DepotFileMap.entrySet()) {
+
             Path source = Paths.get(cur.getKey());
             String p4File = cur.getValue();
-            boolean gitExists = Files.exists(source);
+            boolean gitExists = Utils.fileExists(source.toString());
             boolean p4Exists = p4ExistingFiles.containsKey(p4File);
             if (gitExists) {
-                String target = null;
+                String target;
                 if (p4Exists) {
                     editSet.add(p4File);
                     target = p4ExistingFiles.get(p4File);
                 } else {
-                    addSet.add(cur.getValue());
-                    target = Paths.get(p4Repo.getPathMap().getLocalPath() + cur).toString();
+                    target = Paths.get(p4Repo.getPathMap().getLocalPath() + cur.getKey()).toString();
+                    addSet.add(target);
                 }
                 copyMap.put(source.toString(), target);
 
@@ -297,12 +320,17 @@ class GitP4Bridge {
                     logger.warn(String.format("ignore file %s", cur.getKey()));
                 }
             }
-        });
+        }
 
-//        logger.info(String.format("p4 edit:\n%s", StringUtils.join(editSet, "\n")));
-//        logger.info(String.format("p4 delete:\n%s", StringUtils.join(deleteSet, "\n")));
-//        logger.info(String.format("p4 add:\n%s", StringUtils.join(addSet, "\n")));
-//        logger.info(String.format("copy map\n%s", StringUtils.join(copyMap.entrySet(), "\n")));
+        if (option.dryrun()) {
+            logger.info("\nDry-run result:");
+            logger.info(String.format("\np4 edit:\n%s", StringUtils.join(editSet, "\n")));
+            logger.info(String.format("\np4 delete:\n%s", StringUtils.join(deleteSet, "\n")));
+            logger.info(String.format("\np4 add:\n%s", StringUtils.join(addSet, "\n")));
+            logger.info(String.format("\ncopy map\n%s", StringUtils.join(copyMap.entrySet(), "\n")));
+            logger.info("\n");
+            return;
+        }
 
         String p4cl = P4Change.createEmptyChangeList(option.getMessage());
 
@@ -361,15 +389,12 @@ class GitP4Bridge {
 
         for (P4ChangeInfo change : p4Changes) {
             logger.info(String.format("[%1$d/%2$d]: %3$s", i++, total, change.toString()));
-            logger.info("syncing p4 client to change list " + change.getChangeList());
-            P4Sync.forceSyncTo(repoInfo, change.getChangeList());
 
-            Thread.sleep(P4_SYNC_DELAY);
             copySingleChangelistAndGitCommit(change, repoInfo, views);
         }
     }
 
-    private String copySingleChangelistAndGitCommit(P4ChangeInfo p4Change, P4RepositoryInfo repoInfo, Set<String> views) throws Exception {
+    private void copySingleChangelistAndGitCommit(P4ChangeInfo p4Change, P4RepositoryInfo repoInfo, Set<String> views) throws Exception {
         P4FileStatInfo info = P4Fstat.getChangelistStats(p4Change.getChangeList(), repoInfo);
         logger.info(String.format("%d affected file(s)", info.getFiles().size()));
         List<String> addFiles = new LinkedList<>();
@@ -383,7 +408,7 @@ class GitP4Bridge {
             }
             final String target = file.getDepotFile().replace(repoInfo.getPath(), "./");
             if (P4Operation.delete == file.getOperation()) {
-                if (Files.exists(Paths.get(target))) {
+                if (Utils.fileExists(target)) {
                     removeFiles.add(target);
                 } else {
                     logger.debug(String.format("ignore deleting of nonexistent file %s", target));
@@ -408,11 +433,16 @@ class GitP4Bridge {
             logger.info(String.format("%d file(s) are ignored", ignoredFiles.size()));
             logger.debug("ignored files are:\n" + StringUtils.join(ignoredFiles, "\n"));
         }
+        if (!addFiles.isEmpty()) {
+            logger.info("syncing p4 client to change list " + p4Change.getChangeList());
+            P4Sync.forceSyncTo(repoInfo, p4Change.getChangeList());
+            Thread.sleep(P4_SYNC_DELAY);
+        }
+
         // git rm files first, to avoid the case that move/delete & move/add in the same changelist, to rename a specific
         // file name. This happens when renaming files in IntelliJ
         pagedActionOnFiles(removeFiles, GitRm::run, "Git rm...");
 
-        logger.info("creating necessary dirs...");
         for (String target : addFiles) {
             Files.createDirectories(Paths.get(target).getParent());
         }
@@ -437,7 +467,6 @@ class GitP4Bridge {
                 p4Change.getDate());
 
         GitCommit.commitFromFile(comments, p4Change.getChangeList());
-        return info.getDescription();
     }
 
     private void updateGitP4Config() throws Exception {
@@ -450,5 +479,14 @@ class GitP4Bridge {
         config.setProperty(GitP4Config.lastSync, lastSync);
         GitP4Config.save(config, gitP4ConfigFilePath, "");
         GitAdd.run(gitP4ConfigFilePath.toString());
+    }
+
+    private void checkWorkingDir() {
+        try {
+            GitP4Config.load(gitP4ConfigFilePath);
+        } catch (IOException e) {
+            throw new GitP4Exception("Please run this command under the directory where you ran clone");
+        }
+
     }
 }

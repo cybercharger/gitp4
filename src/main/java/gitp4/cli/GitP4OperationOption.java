@@ -10,7 +10,6 @@ import org.apache.log4j.Logger;
  */
 public abstract class GitP4OperationOption {
     protected static final String HELP_ARG = "help";
-    private final Option helpOption = Option.builder("h").argName(HELP_ARG).longOpt(HELP_ARG).desc("Show this help").build();
     private final Options helpOptions = new Options();
     protected final Options options = new Options();
     protected CommandLine line;
@@ -22,6 +21,7 @@ public abstract class GitP4OperationOption {
         if (StringUtils.isBlank(cmd)) throw new NullPointerException("cmd");
         this.cmd = cmd;
         this.args = args;
+        Option helpOption = Option.builder("h").argName(HELP_ARG).longOpt(HELP_ARG).desc("Show this help").required().build();
         helpOptions.addOption(helpOption);
     }
 

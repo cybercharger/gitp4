@@ -5,6 +5,7 @@ import gitp4.git.common.Constants;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -77,27 +78,12 @@ public class Utils {
         }
     }
 
-//    //File.mkdirs will treat file starting with . as dir, that's why we need this
-//    public static void createDirRecursively(String filePath, char delimiter, Consumer<IOException> onIOException) {
-//        if (StringUtils.isBlank(filePath)) throw new NullPointerException("filePath");
-//        if (onIOException == null) throw new NullPointerException("onIOException");
-//        String[] dirs = StringUtils.split(filePath, "" + delimiter);
-//        String dirStr = dirs[0];
-//        // the last section is file name itself
-//        for (int i = 1; i < dirs.length - 1; ++i) {
-//            dirStr = "".equals(dirStr) ? dirs[i] : String.format("%1$s%2$c%3$s", dirStr, delimiter, dirs[i]);
-//            Path wanted = Paths.get(dirStr);
-//            if (!Files.exists(wanted)) {
-//                try {
-//                    Files.createDirectory(wanted);
-//                } catch (IOException e) {
-//                    logger.error("Failed to create dir: " + dirStr);
-//                    onIOException.accept(e);
-//                }
-//                logger.debug("dirs created: " + dirStr);
-//            }
-//        }
-//    }
+    public static boolean fileExists(String path) throws IOException {
+        if (StringUtils.isBlank(path)) return false;
+        Path filePath = Paths.get(path);
+        // the second part is to handle the case of file path identical in case-insensitive mode, but different in case-sensitive mode, such as windows
+        return Files.exists(filePath) && (new File(filePath.toString())).getCanonicalPath().equals(filePath.toAbsolutePath().toString());
+    }
 
     public static <T> T runtimeExceptionWrapper(Callable<T> callable) {
         try {
