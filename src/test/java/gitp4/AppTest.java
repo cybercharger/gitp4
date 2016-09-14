@@ -227,17 +227,4 @@ public class AppTest {
         Assert.assertNotNull(exp);
     }
 
-    @Test
-    public void shouldBeRemoved() throws IOException {
-        Set<String> org = new HashSet<String>() {{
-            add("abc");
-            add("abd");
-            add("add");
-        }};
-        Set<String> ignore = new HashSet<String>() {{
-            add("add");
-        }};
-        org = org.stream().filter(cur -> !ignore.stream().filter(cur::startsWith).findAny().isPresent()).collect(Collectors.toSet());
-        org.forEach(System.out::println);
-    }
 }

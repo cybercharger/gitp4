@@ -4,7 +4,7 @@
 
     <groupId>gitp4</groupId>
     <artifactId>gitp4</artifactId>
-    <version>1.0.1.0-SNAPSHOT</version>
+    <version>1.0.1</version>
     <packaging>jar</packaging>
 
     <name>gitp4</name>
