@@ -102,7 +102,7 @@ class GitP4Bridge {
 
     private static void logError(Set<String> operations) {
         logger.error("Please provide operation and proper parameters");
-        logger.error(String.format("Valid operations are: \n%s\nPlease type <operation> for details", StringUtils.join(operations, "\n")));
+        logger.error(String.format("Valid operations are: \n%s\nPlease type <operation> --help for details", StringUtils.join(operations, "\n")));
     }
 
     @GitP4Operation(option = MockOption.class)
