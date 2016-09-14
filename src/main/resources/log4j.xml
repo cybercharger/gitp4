@@ -15,10 +15,18 @@
             <param name="ConversionPattern" value="%d{MM/dd/yy HH:mm:ss:SSS:} [%C][%t]: %-5p - %m%n"/>
         </layout>
     </appender>
+    <appender name="FILE_CAUTION" class="org.apache.log4j.FileAppender">
+        <param name="file" value="gitp4_caution.log"/>
+        <param name="Threshold" value="WARN"/>
+        <layout class="org.apache.log4j.PatternLayout">
+            <param name="ConversionPattern" value="%d{MM/dd/yy HH:mm:ss:SSS:} [%C][%t]: %-5p - %m%n"/>
+        </layout>
+    </appender>
     <root>
         <level value="DEBUG" />
         <appender-ref ref="console" />
         <appender-ref ref="FILE"/>
+        <appender-ref ref="FILE_CAUTION"/>
     </root>
 
 </log4j:configuration>

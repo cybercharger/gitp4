@@ -48,7 +48,7 @@ class GitP4Bridge {
     private static final int MAX_THREADS = 10;
     private static final int GIT_ADD_RM_PAGE_SIZE = 20;
     // delay in milliseconds after p4 sync -f @=
-    private static final int P4_SYNC_DELAY = 1000;
+    private static final int P4_SYNC_DELAY = 50;
 
     private static class MethodInfo {
         final Class<? extends GitP4OperationOption> optionClass;
@@ -124,7 +124,10 @@ class GitP4Bridge {
                     throw new GitP4Exception(String.format("%s is not empty", curDir.toAbsolutePath().normalize()));
                 }
             });
+        } else {
+            logger.warn("skip dir empty check, existing content may be destroyed");
         }
+
         if (Files.exists(gitDirPath) || Files.exists(gitP4DirPath)) {
             throw new GitP4Exception("This folder is already initialized for git or cloned from p4 repo");
         }
@@ -406,12 +409,12 @@ class GitP4Bridge {
                 ignoredFiles.add(file.getDepotFile());
                 continue;
             }
-            final String target = file.getDepotFile().replace(repoInfo.getPath(), "./");
+            final String target = file.getDepotFile().replace(repoInfo.getPath(), "");
             if (P4Operation.delete == file.getOperation()) {
                 if (Utils.fileExists(target)) {
                     removeFiles.add(target);
                 } else {
-                    logger.debug(String.format("ignore deleting of nonexistent file %s", target));
+                    logger.warn(String.format("ignore deleting of nonexistent file %1$s from cl %2$s", target, p4Change.getChangeList()));
                 }
                 continue;
             }
@@ -430,7 +433,7 @@ class GitP4Bridge {
             });
         }
         if (!ignoredFiles.isEmpty()) {
-            logger.info(String.format("%d file(s) are ignored", ignoredFiles.size()));
+            logger.info(String.format("%d file(s) is/are ignored", ignoredFiles.size()));
             logger.debug("ignored files are:\n" + StringUtils.join(ignoredFiles, "\n"));
         }
         if (!addFiles.isEmpty()) {
