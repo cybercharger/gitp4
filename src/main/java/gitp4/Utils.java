@@ -12,6 +12,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.*;
 import java.util.function.Consumer;
@@ -21,6 +22,8 @@ import java.util.function.Consumer;
  */
 public class Utils {
     private static final Logger logger = Logger.getLogger(Utils.class);
+    private static final String[] EMPTY_STRING_ARRAY = new String[0];
+
     public static boolean isValidGitCommitId(String commitId) {
         return !StringUtils.isBlank(commitId) &&
                 (Constants.fullCommitIdPattern.matcher(commitId).matches()
@@ -91,6 +94,47 @@ public class Utils {
         } catch (Throwable e) {
             throw (e instanceof RuntimeException) ? (RuntimeException) e : new RuntimeException(e);
         }
+    }
+
+    public static String[] convertToArgArray(String args) {
+        if (StringUtils.isBlank(args)) return EMPTY_STRING_ARRAY;
+        args = args.trim();
+        final char quote = '\'';
+        final char doubleQuote = '"';
+        final char space = ' ';
+        char nextEnd = space;
+        StringBuilder arg = new StringBuilder();
+        List<String> result = new LinkedList<>();
+        for (char c : args.toCharArray()) {
+            if (c == doubleQuote || c == quote) {
+                if (nextEnd == c) {
+                    result.add(arg.toString());
+                    arg = new StringBuilder();
+                    nextEnd = space;
+                } else if (nextEnd == space) {
+                    if (arg.length() > 0) {
+                        result.add(arg.toString());
+                        arg = new StringBuilder();
+                    }
+                    nextEnd = c;
+                } else {
+                    arg.append(c);
+                }
+            } else if (c == space) {
+                if (nextEnd != space) {
+                    arg.append(c);
+                } else {
+                    if (arg.length() > 0) {
+                        result.add(arg.toString());
+                        arg = new StringBuilder();
+                    }
+                }
+            } else {
+                arg.append(c);
+            }
+        }
+        if (arg.length() > 0) result.add(arg.toString());
+        return result.toArray(new String[result.size()]);
     }
 
 }
