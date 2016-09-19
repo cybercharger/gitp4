@@ -9,7 +9,6 @@ import gitp4.p4.cmd.*;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
 
-import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -21,7 +20,6 @@ import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * Created by chriskang on 8/24/2016.
@@ -42,6 +40,7 @@ class GitP4Bridge {
     private static final Set<Path> emptyCheckIgnore = new HashSet<Path>() {{
         add(Paths.get(""));
         add(Paths.get("gitp4.log"));
+        add(Paths.get("gitp4_caution.log"));
     }};
 
     //TODO: move this to properties
@@ -121,7 +120,7 @@ class GitP4Bridge {
             Path curDir = Paths.get("");
             Files.walk(curDir).forEach(cur -> {
                 if (!emptyCheckIgnore.contains(cur)) {
-                    throw new GitP4Exception(String.format("%s is not empty", curDir.toAbsolutePath().normalize()));
+                    throw new GitP4Exception(String.format("%1$s is not empty: %2$s", curDir.toAbsolutePath().normalize(), cur));
                 }
             });
         } else {
@@ -447,7 +446,7 @@ class GitP4Bridge {
         pagedActionOnFiles(removeFiles, GitRm::run, "Git rm...");
 
         for (String target : addFiles) {
-            Files.createDirectories(Paths.get(target).getParent());
+            Files.createDirectories(Paths.get(target).toAbsolutePath().getParent());
         }
 
 
@@ -474,7 +473,7 @@ class GitP4Bridge {
 
     private void updateGitP4Config() throws Exception {
         GitAdd.run(gitP4ConfigFilePath.toString());
-        GitCommit.run("commit .gitp4");
+        GitCommit.run("commit for .gitp4");
     }
 
     private void updateLastSyncAndGitAdd(String lastSync) throws Exception {
