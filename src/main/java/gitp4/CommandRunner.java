@@ -17,6 +17,7 @@ import java.util.function.BiConsumer;
  * Created by chriskang on 8/23/2016.
  */
 public class CommandRunner {
+    public static final String ARG_SEPARATOR = "${args}";
     private static final Logger logger = Logger.getLogger(CommandRunner.class);
     private static final long BUFFER_READ_INTERVAL = 100;
 
@@ -35,7 +36,8 @@ public class CommandRunner {
     }
 
     public static List<String> runCommand(String cmd, String input, BiConsumer<String, List<String>> onError) throws IOException, InterruptedException, ExecutionException {
-        Process p = Runtime.getRuntime().exec(cmd);
+        String[] cmdArray = Utils.convertToArgArray(cmd);
+        Process p = Runtime.getRuntime().exec(cmdArray);
         if (!StringUtils.isBlank(input)) {
             logger.debug("Input: \n" + input);
             OutputStream stdin = p.getOutputStream();

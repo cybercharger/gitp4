@@ -9,6 +9,7 @@ import junit.framework.Assert;
 import org.apache.commons.lang3.StringUtils;
 import org.junit.Test;
 
+import javax.swing.plaf.basic.BasicInternalFrameTitlePane;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -225,6 +226,65 @@ public class AppTest {
             exp = e;
         }
         Assert.assertNotNull(exp);
+    }
+
+    @Test
+    public void testUtilsConvertToArgArray() {
+        String cmd = "git commit -mabc";
+        String[] res = Utils.convertToArgArray(cmd);
+        Assert.assertEquals(3, res.length);
+        Assert.assertEquals("git", res[0]);
+        Assert.assertEquals("commit", res[1]);
+        Assert.assertEquals("-mabc", res[2]);
+
+        cmd = "git commit -m abc";
+        res = Utils.convertToArgArray(cmd);
+        Assert.assertEquals(4, res.length);
+        Assert.assertEquals("git", res[0]);
+        Assert.assertEquals("commit", res[1]);
+        Assert.assertEquals("-m", res[2]);
+        Assert.assertEquals("abc", res[3]);
+
+        cmd = "git   commit    -m      abc";
+        res = Utils.convertToArgArray(cmd);
+        Assert.assertEquals(4, res.length);
+        Assert.assertEquals("git", res[0]);
+        Assert.assertEquals("commit", res[1]);
+        Assert.assertEquals("-m", res[2]);
+        Assert.assertEquals("abc", res[3]);
+
+        cmd = "git commit -m 'abc'";
+        res = Utils.convertToArgArray(cmd);
+        Assert.assertEquals(4, res.length);
+        Assert.assertEquals("git", res[0]);
+        Assert.assertEquals("commit", res[1]);
+        Assert.assertEquals("-m", res[2]);
+        Assert.assertEquals("abc", res[3]);
+
+        cmd = "git commit -m \"abc\"";
+        res = Utils.convertToArgArray(cmd);
+        Assert.assertEquals(4, res.length);
+        Assert.assertEquals("git", res[0]);
+        Assert.assertEquals("commit", res[1]);
+        Assert.assertEquals("-m", res[2]);
+        Assert.assertEquals("abc", res[3]);
+
+        cmd = "git commit -m\"abc\"";
+        res = Utils.convertToArgArray(cmd);
+        Assert.assertEquals(4, res.length);
+        Assert.assertEquals("git", res[0]);
+        Assert.assertEquals("commit", res[1]);
+        Assert.assertEquals("-m", res[2]);
+        Assert.assertEquals("abc", res[3]);
+
+        cmd = "git add 'abc' 'def' \"xy z\"";
+        res = Utils.convertToArgArray(cmd);
+        Assert.assertEquals(5, res.length);
+        Assert.assertEquals("git", res[0]);
+        Assert.assertEquals("add", res[1]);
+        Assert.assertEquals("abc", res[2]);
+        Assert.assertEquals("def", res[3]);
+        Assert.assertEquals("xy z", res[4]);
     }
 
 }
