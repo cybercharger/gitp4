@@ -15,9 +15,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -285,6 +283,39 @@ public class AppTest {
         Assert.assertEquals("abc", res[2]);
         Assert.assertEquals("def", res[3]);
         Assert.assertEquals("xy z", res[4]);
+
+        cmd = "git log --pretty=\"\" --name-status last_p4_submit..abcde";
+        res = Utils.convertToArgArray(cmd);
+        Arrays.stream(res).forEach(cur -> System.out.println(String.format("'%s'", cur)));
+        Assert.assertEquals(6, res.length);
+        Assert.assertEquals("git", res[0]);
+        Assert.assertEquals("log", res[1]);
+        Assert.assertEquals("--pretty=", res[2]);
+        Assert.assertEquals("", res[3]);
+        Assert.assertEquals("--name-status", res[4]);
+        Assert.assertEquals("last_p4_submit..abcde", res[5]);
+    }
+
+    @Test
+    public void testUtilsCollectionContains() {
+        Set<String> pattern = new HashSet<String>() {{
+            add("a");
+            add("e/x");
+        }};
+        Map<String, Boolean> files = new HashMap<String, Boolean>() {{
+            put("a/b/c", true);
+            put("a/d", true);
+            put("b/x/y", false);
+            put("e/x", true);
+            put("c/x/y", false);
+            put("e/f/y", false);
+            put("e/x/y", true);
+        }};
+
+        for (Map.Entry<String, Boolean> entry : files.entrySet()) {
+            boolean expected = entry.getValue();
+            Assert.assertEquals(String.format("file: %1$s", entry.getKey()), expected, Utils.collectionContains(pattern, entry.getKey()::startsWith));
+        }
     }
 
 }

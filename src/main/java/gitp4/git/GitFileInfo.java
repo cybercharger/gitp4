@@ -6,7 +6,7 @@ import org.apache.commons.lang3.StringUtils;
  * Created by ChrisKang on 8/27/2016.
  */
 public class GitFileInfo {
-    public static final String CMD_PARAM = "--pretty=\"\" --name-status";
+    public static final String CMD_PARAM = "--pretty= --name-status";
     private final GitChangeType changeType;
     private final String oldFile;
     private final String newFile;

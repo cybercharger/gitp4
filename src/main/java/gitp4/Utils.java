@@ -16,6 +16,8 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.*;
 import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.Predicate;
 
 /**
  * Created by chriskang on 9/1/2016.
@@ -137,4 +139,8 @@ public class Utils {
         return result.toArray(new String[result.size()]);
     }
 
+    public static <T> boolean collectionContains(Collection<T> collection, Predicate<T> predicate) {
+        if (predicate == null) throw new NullPointerException("predicate");
+        return !(collection == null || collection.isEmpty()) && collection.stream().filter(predicate).findAny().isPresent();
+    }
 }

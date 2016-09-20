@@ -232,38 +232,39 @@ class GitP4Bridge {
         logInfo.forEach(cur -> logger.info(String.format("%1$s: %2$s", cur.getCommit(), cur.getComment())));
         List<GitFileInfo> files = GitLog.getAllChangedFiles(range);
         Set<String> affectedFiles = new HashSet<>();
-        Set<String> rawViews = GitP4Config.getViews(gitP4ConfigFilePath);
-        Set<String> ignored = GitP4Config.getSubmitIgnore(gitP4ConfigFilePath);
-        logger.info("ignore:");
-        ignored.forEach(logger::info);
+        Set<String> ignoredFiles = new HashSet<>();
+        Set<String> rawViews = GitP4Config.getViews(gitP4ConfigFilePath).stream().map(cur -> Paths.get(cur).toString()).collect(Collectors.toSet());
+        Set<String> ignorePattern = GitP4Config.getSubmitIgnore(gitP4ConfigFilePath).stream().map(cur -> Paths.get(cur).toString()).collect(Collectors.toSet());
+        logger.info(String.format("IGNORE PATTERN:\n%s", StringUtils.join(ignorePattern, "\n")));
+
         for (GitFileInfo info : files) {
+            List<String> filesToAdd = new ArrayList<>(2);
             switch (info.getChangeType()) {
                 case Rename:
-                    if (!rawViews.isEmpty() &&
-                            !rawViews.stream().filter(cur -> info.getNewFile().startsWith(cur)).findAny().isPresent()) {
-                        throw new GitP4Exception(String.format("%s is not under the p4 map views, please update your .gitp4/config", info.getOldFile()));
-                    }
-                    affectedFiles.add(info.getNewFile());
+                    filesToAdd.add(info.getNewFile());
                 case Add:
-                    if (!rawViews.isEmpty() &&
-                            !rawViews.stream().filter(cur -> info.getOldFile().startsWith(cur)).findAny().isPresent()) {
-                        throw new GitP4Exception(String.format("%s is not under the p4 map views, please update your .gitp4/config", info.getOldFile()));
-                    }
                 case Delete:
                 case Modify:
-                    affectedFiles.add(info.getOldFile());
+                    filesToAdd.add(info.getOldFile());
                     break;
                 default:
                     throw new IllegalArgumentException("Unknown git operation type " + info.getChangeType());
             }
+
+            for (String file : filesToAdd) {
+                if (Utils.collectionContains(ignorePattern, Paths.get(file).toString()::startsWith)) {
+                    ignoredFiles.add(file);
+                    continue;
+                }
+                if (Utils.collectionContains(rawViews, Paths.get(file).toString()::startsWith)) {
+                    affectedFiles.add(file);
+                } else {
+                    throw new GitP4Exception(String.format("%s is not under the p4 view map, please update your .gitp4/config", file));
+                }
+            }
         }
 
-        //TODO: make this more useful
-        affectedFiles = affectedFiles.stream().filter(cur -> !ignored.stream().filter(i -> {
-            String curPath = Paths.get(cur).toAbsolutePath().toString();
-            String ignore = Paths.get(i).toAbsolutePath().toString();
-            return curPath.startsWith(ignore);
-        }).findAny().isPresent()).collect(Collectors.toSet());
+        logger.info(String.format("IGNORED:\n%s", StringUtils.join(ignoredFiles, "\n")));
 
         final Set<String> finalCopy = affectedFiles;
         Properties config = GitP4Config.load(gitP4ConfigFilePath);
@@ -489,6 +490,5 @@ class GitP4Bridge {
         } catch (IOException e) {
             throw new GitP4Exception("Please run this command under the directory where you ran clone");
         }
-
     }
 }
