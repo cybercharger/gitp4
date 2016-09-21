@@ -183,7 +183,7 @@ class GitP4Bridge {
         GitAdd.run(gitP4ConfigFilePath.toString());
         GitCommit.run("update git p4 config");
 
-        GitTag.run(lastSubmitTag, "git p4 clone");
+        GitTag.tag(lastSubmitTag, "git p4 clone");
         GitCheckout.run(String.format("-b %s", p4IntBranchName));
     }
 
@@ -222,7 +222,11 @@ class GitP4Bridge {
         checkWorkingDir();
         GitLogInfo latest = GitLog.getLatestCommit();
         logger.info("Commits submitted upto " + latest.getCommit());
-        final String range = String.format("%1$s..%2$s", lastSubmitTag, latest.getCommit());
+
+        final String range = (GitTag.tagExisting(lastSubmitTag)) ?
+                String.format("%1$s..%2$s", lastSubmitTag, latest.getCommit()) :
+                String.format("%1$s %2$s", GitRevList.getFirstCommit(), latest.getCommit());
+
         List<GitLogInfo> logInfo = GitLog.run(range);
         if (logInfo.isEmpty()) {
             logger.warn("Nothing to submit to p4 repo");

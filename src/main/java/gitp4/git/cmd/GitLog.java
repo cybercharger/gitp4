@@ -5,8 +5,10 @@ import gitp4.git.GitFileInfo;
 import gitp4.git.GitLogInfo;
 import org.apache.commons.lang3.StringUtils;
 
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -16,7 +18,10 @@ import java.util.regex.Pattern;
 public class GitLog {
     private static final String GIT_LOG_CMD = "git log %1$s %2$s";
     private static final String GIT_LOG_LATEST_COMMIT = "git log -1 --pretty=oneline";
-    private static Pattern pattern = Pattern.compile("[^\\s\\.]+\\.\\.[^\\s\\.]+");
+    private static Set<Pattern> patterns = new HashSet<Pattern>() {{
+        add(Pattern.compile("[^\\s\\.]+\\.\\.[^\\s\\.]+"));
+        add(Pattern.compile("[^\\s\\.]+\\s+[^\\s\\.]+"));
+    }};
 
     public static List<GitLogInfo> run(final String rangeInfo) {
         validateInput(rangeInfo);
@@ -51,8 +56,9 @@ public class GitLog {
 
     private static void validateInput(String rangeInfo) {
         if (!StringUtils.isBlank(rangeInfo)) {
-            Matcher matcher = pattern.matcher(rangeInfo);
-            if (!matcher.matches()) throw new IllegalArgumentException("rangeInfo: " + rangeInfo);
+            boolean matches = patterns.stream().filter(cur -> cur.matcher(rangeInfo).matches()).findAny().isPresent();
+
+            if (!matches) throw new IllegalArgumentException("rangeInfo: " + rangeInfo);
         }
     }
 }

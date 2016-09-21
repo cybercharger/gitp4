@@ -10,8 +10,9 @@ import org.apache.log4j.Logger;
  */
 public class GitTag {
     private static final String GIT_TAG_CMD = "git tag -a %1$s -m\"%2$s\"";
+    private static final String GIT_TAG_RETRIEVE_CMD = "git tag";
 
-    public static void run(final String tagName, final String comments) {
+    public static void tag(final String tagName, final String comments) {
         if (StringUtils.isBlank(tagName)) throw new NullPointerException("tagName");
         if (StringUtils.isBlank(comments)) throw new NullPointerException("comments");
         CmdRunner.getGitCmdRunner().run(() -> String.format(GIT_TAG_CMD, tagName, comments),
@@ -22,5 +23,11 @@ public class GitTag {
                     }
                     return "";
                 });
+    }
+
+    public static boolean tagExisting(final String tagName) {
+        if (StringUtils.isBlank(tagName)) throw new NullPointerException("tagName");
+        return CmdRunner.getGitCmdRunner().run(() -> GIT_TAG_RETRIEVE_CMD,
+                cmdRes -> !(cmdRes == null || cmdRes.isEmpty()) && cmdRes.stream().filter(tagName::equals).findAny().isPresent());
     }
 }
