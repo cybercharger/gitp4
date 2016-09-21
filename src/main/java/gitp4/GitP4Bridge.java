@@ -238,29 +238,15 @@ class GitP4Bridge {
         logger.info(String.format("IGNORE PATTERN:\n%s", StringUtils.join(ignorePattern, "\n")));
 
         for (GitFileInfo info : files) {
-            List<String> filesToAdd = new ArrayList<>(2);
-            switch (info.getChangeType()) {
-                case Rename:
-                    filesToAdd.add(info.getNewFile());
-                case Add:
-                case Delete:
-                case Modify:
-                    filesToAdd.add(info.getOldFile());
-                    break;
-                default:
-                    throw new IllegalArgumentException("Unknown git operation type " + info.getChangeType());
+            String file = info.getFile();
+            if (Utils.collectionContains(ignorePattern, Paths.get(file).toString()::startsWith)) {
+                ignoredFiles.add(file);
+                continue;
             }
-
-            for (String file : filesToAdd) {
-                if (Utils.collectionContains(ignorePattern, Paths.get(file).toString()::startsWith)) {
-                    ignoredFiles.add(file);
-                    continue;
-                }
-                if (Utils.collectionContains(rawViews, Paths.get(file).toString()::startsWith)) {
-                    affectedFiles.add(file);
-                } else {
-                    throw new GitP4Exception(String.format("%s is not under the p4 view map, please update your .gitp4/config", file));
-                }
+            if (Utils.collectionContains(rawViews, Paths.get(file).toString()::startsWith)) {
+                affectedFiles.add(file);
+            } else {
+                throw new GitP4Exception(String.format("%s is not under the p4 view map, please update your .gitp4/config", file));
             }
         }
 
@@ -295,6 +281,8 @@ class GitP4Bridge {
                 }),
                 "checking p4 files...");
 
+        P4Sync.syncToLatest(p4Repo);
+
         Map<String, String> copyMap = new HashMap<>();
         Set<String> editSet = new HashSet<>();
         Set<String> addSet = new HashSet<>();
@@ -304,6 +292,10 @@ class GitP4Bridge {
             Path source = Paths.get(cur.getKey());
             String p4File = cur.getValue();
             boolean gitExists = Utils.fileExists(source.toString());
+            if (!gitExists) {
+                logger.warn(String.format("git file %s doesn't exist, please double check it's deleted", source));
+            }
+
             boolean p4Exists = p4ExistingFiles.containsKey(p4File);
             if (gitExists) {
                 String target;

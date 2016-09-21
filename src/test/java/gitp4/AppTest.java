@@ -1,6 +1,5 @@
 package gitp4;
 
-
 import gitp4.git.GitChangeType;
 import gitp4.git.GitFileInfo;
 import gitp4.git.GitLogInfo;
@@ -9,14 +8,8 @@ import junit.framework.Assert;
 import org.apache.commons.lang3.StringUtils;
 import org.junit.Test;
 
-import javax.swing.plaf.basic.BasicInternalFrameTitlePane;
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * Unit test for simple App.
@@ -92,29 +85,43 @@ public class AppTest {
 
     @Test
     public void testGitFileInfo() {
-        final String add = "A       src/main/java/gitp4/GitP4Operation.java";
+
+        String add = "A       src/main/java/gitp4/GitP4Operation.java";
         GitFileInfo info = new GitFileInfo(add);
         Assert.assertEquals(GitChangeType.Add, info.getChangeType());
-        Assert.assertEquals("src/main/java/gitp4/GitP4Operation.java", info.getOldFile());
-        Assert.assertEquals("src/main/java/gitp4/GitP4Operation.java", info.getNewFile());
+        Assert.assertEquals("src/main/java/gitp4/GitP4Operation.java", info.getFile());
 
-        final String move = "R087\tsrc/main/java/gitp4/p4/P4Change.java\tsrc/main/java/gitp4/p4/P4ChangeInfo.java";
-        info = new GitFileInfo(move);
-        Assert.assertEquals(GitChangeType.Rename, info.getChangeType());
-        Assert.assertEquals("src/main/java/gitp4/p4/P4Change.java", info.getOldFile());
-        Assert.assertEquals("src/main/java/gitp4/p4/P4ChangeInfo.java", info.getNewFile());
+        add = "A\tcatalog/testData/smoke/lookup/GameEditionTypeFacetKey/Anniversary Edition.xml";
+        info = new GitFileInfo(add);
+        Assert.assertEquals(GitChangeType.Add, info.getChangeType());
+        Assert.assertEquals("catalog/testData/smoke/lookup/GameEditionTypeFacetKey/Anniversary Edition.xml", info.getFile());
 
         final String modify = "M       src/main/java/gitp4/p4/P4RepositoryInfo.java";
         info = new GitFileInfo(modify);
         Assert.assertEquals(GitChangeType.Modify, info.getChangeType());
-        Assert.assertEquals("src/main/java/gitp4/p4/P4RepositoryInfo.java", info.getOldFile());
-        Assert.assertEquals("src/main/java/gitp4/p4/P4RepositoryInfo.java", info.getNewFile());
+        Assert.assertEquals("src/main/java/gitp4/p4/P4RepositoryInfo.java", info.getFile());
 
         final String delete = "D\t src/main/java/gitp4/p4/P4RepositoryInfo.java";
         info = new GitFileInfo(delete);
         Assert.assertEquals(GitChangeType.Delete, info.getChangeType());
-        Assert.assertEquals("src/main/java/gitp4/p4/P4RepositoryInfo.java", info.getOldFile());
-        Assert.assertEquals("src/main/java/gitp4/p4/P4RepositoryInfo.java", info.getNewFile());
+        Assert.assertEquals("src/main/java/gitp4/p4/P4RepositoryInfo.java", info.getFile());
+
+        Exception exp = null;
+        try {
+            final String move = "R087\tsrc/main/java/gitp4/p4/P4Change.java\tsrc/main/java/gitp4/p4/P4ChangeInfo.java";
+            info = new GitFileInfo(move);
+            Assert.assertEquals(GitChangeType.Rename, info.getChangeType());
+            Assert.assertEquals("src/main/java/gitp4/p4/P4Change.java", info.getFile());
+
+
+        } catch (Exception e) {
+            if (e instanceof IllegalStateException) {
+                exp = e;
+            } else {
+                exp = null;
+            }
+        }
+        Assert.assertNotNull(exp);
     }
 
     @Test
@@ -286,7 +293,6 @@ public class AppTest {
 
         cmd = "git log --pretty=\"\" --name-status last_p4_submit..abcde";
         res = Utils.convertToArgArray(cmd);
-        Arrays.stream(res).forEach(cur -> System.out.println(String.format("'%s'", cur)));
         Assert.assertEquals(6, res.length);
         Assert.assertEquals("git", res[0]);
         Assert.assertEquals("log", res[1]);
@@ -317,5 +323,4 @@ public class AppTest {
             Assert.assertEquals(String.format("file: %1$s", entry.getKey()), expected, Utils.collectionContains(pattern, entry.getKey()::startsWith));
         }
     }
-
 }

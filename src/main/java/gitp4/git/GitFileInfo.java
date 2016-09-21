@@ -1,25 +1,26 @@
 package gitp4.git;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.log4j.Logger;
 
 /**
  * Created by ChrisKang on 8/27/2016.
  */
 public class GitFileInfo {
-    public static final String CMD_PARAM = "--pretty= --name-status";
+    public static final String CMD_PARAM = "--pretty= --name-status --no-renames";
     private final GitChangeType changeType;
-    private final String oldFile;
-    private final String newFile;
+    private final String file;
 
     public GitFileInfo(String cmdRes) {
         if (StringUtils.isBlank(cmdRes)) throw new NullPointerException("cmdRes");
         String[] res = cmdRes.split("\\s+");
         changeType = GitChangeType.parse(res[0].trim());
         if (GitChangeType.Rename.equals(changeType)) {
-            oldFile = res[1].trim();
-            newFile = res[2].trim();
-        } else {
-            oldFile = newFile = res[1].trim();
+            throw new IllegalStateException("Git operation 'rename' is not supported");
+        }
+        file = cmdRes.substring(res[0].length() + 1).trim();
+        if (res.length > 2) {
+            Logger.getLogger(GitFileInfo.class).warn("Double check path containing white space: " + cmdRes);
         }
     }
 
@@ -27,18 +28,13 @@ public class GitFileInfo {
         return changeType;
     }
 
-    public String getOldFile() {
-        return oldFile;
+    public String getFile() {
+        return file;
     }
 
-    public String getNewFile() {
-        return newFile;
-    }
 
     @Override
     public String toString() {
-        return GitChangeType.Rename.equals(changeType) ?
-                String.format("%1$s: %2$s -> %3$s", changeType, oldFile, newFile) :
-                String.format("%1$s: %2$s", changeType, oldFile);
+        return String.format("%1$s: %2$s", changeType, file);
     }
 }

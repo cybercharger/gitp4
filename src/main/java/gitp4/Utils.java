@@ -87,7 +87,7 @@ public class Utils {
         if (StringUtils.isBlank(path)) return false;
         Path filePath = Paths.get(path);
         // the second part is to handle the case of file path identical in case-insensitive mode, but different in case-sensitive mode, such as windows
-        return Files.exists(filePath) && (new File(filePath.toString())).getCanonicalPath().equals(filePath.toAbsolutePath().toString());
+        return Files.exists(filePath) && (new File(filePath.toString())).getCanonicalPath().equals(filePath.toRealPath().toString());
     }
 
     public static <T> T runtimeExceptionWrapper(Callable<T> callable) {
