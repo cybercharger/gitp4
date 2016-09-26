@@ -26,36 +26,21 @@ import java.util.stream.Collectors;
  */
 class GitP4Bridge {
     private static Logger logger = Logger.getLogger(GitP4Bridge.class);
-
-    private static final String commitCommentsTemplate = "p4-%3$s: %1$s\n[p4 depot = %2$s change = %3$s from %4$s on %5$s]";
-    private static final String submitHints = "p4 changelist %1$s has been created. Please re-tag last_p4_submit to %2$s after having it checked in";
-
-    private static final String GIT_P4_SYNC_CMD_FMT = "%1$s...@%2$d,#head";
-    private static final String lastSubmitTag = "last_p4_submit";
-    private static final String p4IntBranchName = "p4-integ";
-
-    private static final Path gitP4DirPath = Paths.get(".gitp4");
-    private static final Path gitDirPath = Paths.get(".git");
-    private static final Path gitP4ConfigFilePath = Paths.get(gitP4DirPath.toString(), "config");
     private static final Set<Path> emptyCheckIgnore = new HashSet<Path>() {{
         add(Paths.get(""));
         add(Paths.get("gitp4.log"));
         add(Paths.get("gitp4_caution.log"));
     }};
 
-    //TODO: move this to properties
-    private static final int MAX_THREADS = 10;
-    private static final int GIT_ADD_RM_PAGE_SIZE = 20;
-    // delay in milliseconds after p4 sync -f @=
-    private static final int P4_SYNC_DELAY = 50;
-
     private static class MethodInfo {
         final Class<? extends GitP4OperationOption> optionClass;
         final Method method;
+        final String description;
 
-        MethodInfo(Class<? extends GitP4OperationOption> option, Method method) {
+        MethodInfo(Class<? extends GitP4OperationOption> option, Method method, String description) {
             this.optionClass = option;
             this.method = method;
+            this.description = description;
         }
     }
 
@@ -65,11 +50,12 @@ class GitP4Bridge {
         for (Method m : GitP4Bridge.class.getDeclaredMethods()) {
             GitP4Operation gpo = m.getAnnotation(GitP4Operation.class);
             if (gpo == null) continue;
-            methodMap.put(m.getName(), new MethodInfo(gpo.option(), m));
+            String operationName = StringUtils.isBlank(gpo.operationName()) ? m.getName() : gpo.operationName();
+            methodMap.put(operationName, new MethodInfo(gpo.option(), m, gpo.description()));
         }
 
         if (args.length < 1 || !methodMap.containsKey(args[0])) {
-            logError(methodMap.keySet());
+            logError(methodMap);
             return;
         }
 
@@ -99,22 +85,29 @@ class GitP4Bridge {
         return true;
     }
 
-    private static void logError(Set<String> operations) {
+    private static void logError(Map<String, MethodInfo> methodInfoMap) {
         logger.error("Please provide operation and proper parameters");
-        logger.error(String.format("Valid operations are: \n%s\nPlease type <operation> --help for details", StringUtils.join(operations, "\n")));
+        StringBuilder sb = new StringBuilder();
+        methodInfoMap.entrySet().forEach(cur -> sb.append(String.format("%1$s:\t%2$s\n", cur.getKey(), cur.getValue().description)));
+        logger.error(String.format("Valid operations are: \n%s\nPlease type <operation> --help for details", sb.toString()));
     }
 
-    @GitP4Operation(option = MockOption.class)
+    @GitP4Operation(option = MockOption.class, description = "mock operation")
     private void mock(GitP4OperationOption input) {
         if (input == null) throw new NullPointerException("input");
 
         MockOption option = MockOption.class.cast(input);
-
-        System.out.print(option.getMock());
+        System.out.print(String.format("mock:\t\t%1$s\nprofile:\t%2$s\nMaxThreads:\t%3$s\nPageSize:\t%4$s\nP4SyncDelay:\t%5$sms\n",
+                option.getMock(),
+                option.getProfile(),
+                option.getMaxThreads(),
+                option.getPageSize(),
+                option.getP4SyncDelay()));
     }
 
     private String init(CloneOption option) throws Exception {
         if (option == null) throw new NullPointerException("option");
+        Profile profile = new Profile(option.getProfile(), false);
 
         if (!option.bypassEmptyCheck()) {
             Path curDir = Paths.get("");
@@ -127,7 +120,7 @@ class GitP4Bridge {
             logger.warn("skip dir empty check, existing content may be destroyed");
         }
 
-        if (Files.exists(gitDirPath) || Files.exists(gitP4DirPath)) {
+        if (Files.exists(Profile.gitDirPath) || Files.exists(Profile.gitP4DirPath)) {
             throw new GitP4Exception("This folder is already initialized for git or cloned from p4 repo");
         }
 
@@ -143,21 +136,21 @@ class GitP4Bridge {
         }
 
 
-        if (Files.exists(gitP4DirPath)) {
+        if (Files.exists(Profile.gitP4DirPath)) {
             throw new GitP4Exception("This folder is already initialized for git or cloned from p4 repo");
         }
-        Files.createDirectory(gitP4DirPath);
+        Files.createDirectory(Profile.gitP4DirPath);
         Properties config = new Properties();
         config.setProperty(GitP4Config.p4Repo, repoInfo.getPathWithSubContents());
         config.setProperty(GitP4Config.viewMap, option.getViewString());
         config.setProperty(GitP4Config.lastSync, "-1");
-        config.setProperty(GitP4Config.submitIgnore, gitP4ConfigFilePath.toString());
-        GitP4Config.save(config, gitP4ConfigFilePath, ".gitp4 config");
+        config.setProperty(GitP4Config.submitIgnore, profile.getConfigFilePath().toString());
+        GitP4Config.save(config, profile.getConfigFilePath(), ".gitp4 config");
 
 
         logger.info("Git init current directory...");
         GitInit.run("");
-        updateGitP4Config();
+        updateGitP4Config(profile.getConfigFilePath().toString());
 
         String[] map = option.getViewMap().stream()
                 .map(cur -> String.format("%1$s%2$s/...", repoInfo.getPath(), cur))
@@ -166,9 +159,10 @@ class GitP4Bridge {
         return option.getCloneString();
     }
 
-    @GitP4Operation(option = CloneOption.class)
+    @GitP4Operation(option = CloneOption.class, description = "clone a specific p4 repository")
     private void clone(CloneOption option) throws Exception {
         String cloneString = init(option);
+        Profile profile = new Profile(option.getProfile(), true);
         logger.info("cloning " + cloneString);
         List<P4ChangeInfo> p4Changes = P4Changes.run(cloneString);
         if (p4Changes.isEmpty()) {
@@ -178,26 +172,27 @@ class GitP4Bridge {
 
         logger.info(String.format("Totally %d changelist(s) to clone", p4Changes.size()));
 
-        applyP4Changes(p4Changes, new P4RepositoryInfo(cloneString));
+        applyP4Changes(p4Changes, new P4RepositoryInfo(cloneString), option, profile);
 
-        GitAdd.run(gitP4ConfigFilePath.toString());
+        GitAdd.run(profile.getConfigFilePath().toString());
         GitCommit.run("update git p4 config");
 
-        GitTag.tag(lastSubmitTag, "git p4 clone");
-        GitCheckout.run(String.format("-b %s", p4IntBranchName));
+        GitTag.tag(Profile.lastSubmitTag, "git p4 clone");
+        GitCheckout.run(String.format("-b %s", Profile.p4IntBranchName));
     }
 
-    @GitP4Operation(option = EmptyOption.class)
+    @GitP4Operation(option = EmptyOption.class, description = "sync code from the specified p4 repository")
     private void sync(EmptyOption option) throws Exception {
-        checkWorkingDir();
-        if (!Files.exists(gitP4ConfigFilePath)) {
+        Profile profile = new Profile(option.getProfile(), true);
+        checkWorkingDir(profile.getConfigFilePath());
+        if (!Files.exists(profile.getConfigFilePath())) {
             throw new GitP4Exception("Please run git p4 clone first");
         }
-        Properties config = GitP4Config.load(gitP4ConfigFilePath);
+        Properties config = GitP4Config.load(profile.getConfigFilePath());
         int lastChangelist = Integer.parseInt(config.getProperty(GitP4Config.lastSync)) + 1;
         P4RepositoryInfo repoInfo = new P4RepositoryInfo(config.getProperty(GitP4Config.p4Repo));
 
-        List<P4ChangeInfo> p4Changes = P4Changes.run(String.format(GIT_P4_SYNC_CMD_FMT, repoInfo.getPath(), lastChangelist));
+        List<P4ChangeInfo> p4Changes = P4Changes.run(String.format(Profile.GIT_P4_SYNC_CMD_FMT, repoInfo.getPath(), lastChangelist));
         if (p4Changes.isEmpty()) {
             logger.info("files are up to date");
             return;
@@ -213,18 +208,20 @@ class GitP4Bridge {
 
         logger.info(String.format("Totally %d changelist(s) to sync", p4Changes.size()));
 
-        applyP4Changes(p4Changes, repoInfo);
-        updateGitP4Config();
+        applyP4Changes(p4Changes, repoInfo, option, profile);
+        updateGitP4Config(profile.getConfigFilePath().toString());
     }
 
-    @GitP4Operation(option = SubmitOption.class)
-    private void submit(SubmitOption option) throws Exception {
-        checkWorkingDir();
+    @GitP4Operation(option = P4clOperation.class, operationName = "p4cl", description = "create a p4 changelist for git changes")
+    private void createP4Changelist(P4clOperation option) throws Exception {
+        Profile profile = new Profile(option.getProfile(), true);
+        checkWorkingDir(profile.getConfigFilePath());
+
         GitLogInfo latest = GitLog.getLatestCommit();
         logger.info("Commits submitted upto " + latest.getCommit());
 
-        final String range = (GitTag.tagExisting(lastSubmitTag)) ?
-                String.format("%1$s..%2$s", lastSubmitTag, latest.getCommit()) :
+        final String range = (GitTag.tagExisting(Profile.lastSubmitTag)) ?
+                String.format("%1$s..%2$s", Profile.lastSubmitTag, latest.getCommit()) :
                 String.format("%1$s %2$s", GitRevList.getFirstCommit(), latest.getCommit());
 
         List<GitLogInfo> logInfo = GitLog.run(range);
@@ -237,8 +234,8 @@ class GitP4Bridge {
         List<GitFileInfo> files = GitLog.getAllChangedFiles(range);
         Set<String> affectedFiles = new HashSet<>();
         Set<String> ignoredFiles = new HashSet<>();
-        Set<String> rawViews = GitP4Config.getViews(gitP4ConfigFilePath).stream().map(cur -> Paths.get(cur).toString()).collect(Collectors.toSet());
-        Set<String> ignorePattern = GitP4Config.getSubmitIgnore(gitP4ConfigFilePath).stream().map(cur -> Paths.get(cur).toString()).collect(Collectors.toSet());
+        Set<String> rawViews = GitP4Config.getViews(profile.getConfigFilePath()).stream().map(cur -> Paths.get(cur).toString()).collect(Collectors.toSet());
+        Set<String> ignorePattern = GitP4Config.getSubmitIgnore(profile.getConfigFilePath()).stream().map(cur -> Paths.get(cur).toString()).collect(Collectors.toSet());
         logger.info(String.format("IGNORE PATTERN:\n%s", StringUtils.join(ignorePattern, "\n")));
 
         for (GitFileInfo info : files) {
@@ -257,7 +254,7 @@ class GitP4Bridge {
         logger.info(String.format("IGNORED:\n%s", StringUtils.join(ignoredFiles, "\n")));
 
         final Set<String> finalCopy = affectedFiles;
-        Properties config = GitP4Config.load(gitP4ConfigFilePath);
+        Properties config = GitP4Config.load(profile.getConfigFilePath());
         P4RepositoryInfo p4Repo = new P4RepositoryInfo(config.getProperty(GitP4Config.p4Repo) + P4RepositoryInfo.TRIPLE_DOTS);
         List<P4FileOpenedInfo> p4Opened = P4Opened.run(p4Repo.getPathWithSubContents());
 
@@ -283,7 +280,7 @@ class GitP4Bridge {
                     if (!P4Operation.delete.equals(info.getOperation())) // if the headAction is delete means this file has been deleted on P4
                         p4ExistingFiles.put(info.getDepotFile(), info.getClientFile());
                 }),
-                "checking p4 files...");
+                "checking p4 files...", option.getMaxThreads());
 
         P4Sync.syncToLatest(p4Repo);
 
@@ -333,9 +330,9 @@ class GitP4Bridge {
 
         String p4cl = P4Change.createEmptyChangeList(option.getMessage());
 
-        pagedActionOnFiles(editSet, cur -> P4Edit.run(cur, p4cl), "p4 edit...");
+        pagedActionOnFiles(editSet, cur -> P4Edit.run(cur, p4cl), "p4 edit...", option.getPageSize());
 
-        pagedActionOnFiles(deleteSet, cur -> P4Delete.run(cur, p4cl), "p4 delete...");
+        pagedActionOnFiles(deleteSet, cur -> P4Delete.run(cur, p4cl), "p4 delete...", option.getPageSize());
 
         List<Callable<Boolean>> theCallable = new LinkedList<>();
         for (Map.Entry<String, String> entry : copyMap.entrySet()) {
@@ -358,30 +355,38 @@ class GitP4Bridge {
         // copying file in parallel
         logger.info("copying files...");
         if (!theCallable.isEmpty()) {
-            if (!Utils.runConcurrentlyAndAggregate(MAX_THREADS, theCallable)) {
+            if (!Utils.runConcurrentlyAndAggregate(option.getMaxThreads(), theCallable)) {
                 throw new RuntimeException("Error occurred when copying files");
             }
         }
 
-        pagedActionOnFiles(addSet, cur -> P4Add.run(cur, p4cl), "p4 add...");
-        logger.info(String.format(submitHints, p4cl, latest.getCommit()));
+        pagedActionOnFiles(addSet, cur -> P4Add.run(cur, p4cl), "p4 add...", option.getPageSize());
+        logger.info(String.format(Profile.submitHints, p4cl, latest.getCommit()));
     }
 
-    private static void pagedActionOnFiles(Collection<String> files, Consumer<String> action, String log) throws Exception {
+    @GitP4Operation(option = SubmitOption.class, description = "submit to p4")
+    private void submit(SubmitOption option) {
+
+    }
+
+    private static void pagedActionOnFiles(Collection<String> files, Consumer<String> action, String log, int pageSize) throws Exception {
         if (!files.isEmpty()) {
             logger.info(log);
             List<String> filesWithQuotes = files.stream()
                     .map(cur -> String.format("\"%s\"", cur))
                     .collect(Collectors.toList());
-            Utils.pagedAction(filesWithQuotes, GIT_ADD_RM_PAGE_SIZE, page -> action.accept(StringUtils.join(page, " ")));
+            Utils.pagedAction(filesWithQuotes, pageSize, page -> action.accept(StringUtils.join(page, " ")));
         }
     }
 
-    private void applyP4Changes(List<P4ChangeInfo> p4Changes, P4RepositoryInfo repoInfo) throws Exception {
+    private void applyP4Changes(List<P4ChangeInfo> p4Changes,
+                                P4RepositoryInfo repoInfo,
+                                GitP4OperationOption option,
+                                Profile profile) throws Exception {
         int i = 1;
         int total = p4Changes.size();
 
-        Set<String> views = GitP4Config.getViewsWithRoot(gitP4ConfigFilePath);
+        Set<String> views = GitP4Config.getViewsWithRoot(profile.getConfigFilePath());
         if (!views.isEmpty()) {
             logger.info("only files under following directories will be cloned:\n" + StringUtils.join(views, "\n"));
         }
@@ -389,11 +394,15 @@ class GitP4Bridge {
         for (P4ChangeInfo change : p4Changes) {
             logger.info(String.format("[%1$d/%2$d]: %3$s", i++, total, change.toString()));
 
-            copySingleChangelistAndGitCommit(change, repoInfo, views);
+            copySingleChangelistAndGitCommit(change, repoInfo, views, option, profile);
         }
     }
 
-    private void copySingleChangelistAndGitCommit(P4ChangeInfo p4Change, P4RepositoryInfo repoInfo, Set<String> views) throws Exception {
+    private void copySingleChangelistAndGitCommit(P4ChangeInfo p4Change,
+                                                  P4RepositoryInfo repoInfo,
+                                                  Set<String> views,
+                                                  GitP4OperationOption option,
+                                                  Profile profile) throws Exception {
         P4FileStatInfo info = P4Fstat.getChangelistStats(p4Change.getChangeList(), repoInfo);
         logger.info(String.format("%d affected file(s)", info.getFiles().size()));
         List<String> addFiles = new LinkedList<>();
@@ -435,12 +444,12 @@ class GitP4Bridge {
         if (!addFiles.isEmpty()) {
             logger.info("syncing p4 client to change list " + p4Change.getChangeList());
             P4Sync.forceSyncTo(repoInfo, p4Change.getChangeList());
-            Thread.sleep(P4_SYNC_DELAY);
+            Thread.sleep(option.getP4SyncDelay());
         }
 
         // git rm files first, to avoid the case that move/delete & move/add in the same changelist, to rename a specific
         // file name. This happens when renaming files in IntelliJ
-        pagedActionOnFiles(removeFiles, GitRm::run, "Git rm...");
+        pagedActionOnFiles(removeFiles, GitRm::run, "Git rm...", option.getPageSize());
 
         for (String target : addFiles) {
             Files.createDirectories(Paths.get(target).toAbsolutePath().getParent());
@@ -450,15 +459,15 @@ class GitP4Bridge {
         // copying file in parallel
         if (!theCallable.isEmpty()) {
             logger.info(String.format("%d file(s) in total to copy...", theCallable.size()));
-            if (!Utils.runConcurrentlyAndAggregate(MAX_THREADS, theCallable)) {
+            if (!Utils.runConcurrentlyAndAggregate(option.getMaxThreads(), theCallable)) {
                 throw new RuntimeException("Error occurred when copying files for changelist " + p4Change.getChangeList());
             }
         }
 
-        pagedActionOnFiles(addFiles, GitAdd::run, "Git add...");
+        pagedActionOnFiles(addFiles, GitAdd::run, "Git add...", option.getPageSize());
 
-        updateLastSyncAndGitAdd(p4Change.getChangeList());
-        String comments = String.format(commitCommentsTemplate,
+        updateLastSyncAndGitAdd(p4Change.getChangeList(), profile.getConfigFilePath());
+        String comments = String.format(Profile.commitCommentsTemplate,
                 info.getDescription(),
                 repoInfo.getPath(),
                 p4Change.getChangeList(),
@@ -468,21 +477,21 @@ class GitP4Bridge {
         GitCommit.commitFromFile(comments, p4Change.getChangeList());
     }
 
-    private void updateGitP4Config() throws Exception {
-        GitAdd.run(gitP4ConfigFilePath.toString());
+    private void updateGitP4Config(String path) throws Exception {
+        GitAdd.run(path);
         GitCommit.run("commit for .gitp4");
     }
 
-    private void updateLastSyncAndGitAdd(String lastSync) throws Exception {
-        Properties config = GitP4Config.load(gitP4ConfigFilePath);
+    private void updateLastSyncAndGitAdd(String lastSync, Path path) throws Exception {
+        Properties config = GitP4Config.load(path);
         config.setProperty(GitP4Config.lastSync, lastSync);
-        GitP4Config.save(config, gitP4ConfigFilePath, "");
-        GitAdd.run(gitP4ConfigFilePath.toString());
+        GitP4Config.save(config, path, "");
+        GitAdd.run(path.toString());
     }
 
-    private void checkWorkingDir() {
+    private void checkWorkingDir(Path path) {
         try {
-            GitP4Config.load(gitP4ConfigFilePath);
+            GitP4Config.load(path);
         } catch (IOException e) {
             throw new GitP4Exception("Please run this command under the directory where you ran clone");
         }

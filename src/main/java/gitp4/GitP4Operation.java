@@ -14,4 +14,6 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @interface GitP4Operation {
     Class<? extends GitP4OperationOption> option();
+    String operationName() default "";
+    String description() default "";
 }

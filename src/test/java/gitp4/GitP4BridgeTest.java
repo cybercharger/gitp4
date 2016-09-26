@@ -36,8 +36,14 @@ public class GitP4BridgeTest {
     @Test
     public void testGitP4BridgeMock() throws InvocationTargetException, IllegalAccessException, NoSuchMethodException, InstantiationException {
         GitP4Bridge bridge = new GitP4Bridge();
-        bridge.operate(new String[] {"mock", "--mock", "mock-message"});
-        Assert.assertEquals("mock-message", myOut.toString());
+        bridge.operate(new String[] {"mock",
+                "--mock", "mock-message",
+                "--profile", "default",
+                "--max-thread", "20",
+                "--page-size","100",
+                "--p4-sync-delay", "30"});
+        String expected = "mock:\t\tmock-message\nprofile:\tdefault\nMaxThreads:\t20\nPageSize:\t100\nP4SyncDelay:\t30ms\n";
+        Assert.assertEquals(expected, myOut.toString());
     }
 
     @Test
@@ -65,15 +71,20 @@ public class GitP4BridgeTest {
         Assert.assertEquals("//nucleus/SANDBOX/catalog/...", ((CloneOption)option).getCloneString());
         Assert.assertEquals("views", ((CloneOption)option).getViewString());
 
-        args = new String[] {"--message", "submit message"};
-        option = new SubmitOption(args);
+        args = new String[] {"--message", "cl comments"};
+        option = new P4clOperation(args);
         option.parse();
-        Assert.assertEquals("submit message", ((SubmitOption)option).getMessage());
+        Assert.assertEquals("cl comments", ((P4clOperation)option).getMessage());
 
-        args = new String[] {"-m", "submit message"};
+        args = new String[] {"-m", "cl comments"};
+        option = new P4clOperation(args);
+        option.parse();
+        Assert.assertEquals("cl comments", ((P4clOperation)option).getMessage());
+
+        args = new String[] {"-f"};
         option = new SubmitOption(args);
         option.parse();
-        Assert.assertEquals("submit message", ((SubmitOption)option).getMessage());
+        Assert.assertTrue(((SubmitOption)option).isForced());
 
         args = new String[] {"-m", "mock message"};
         option = new MockOption(args);
