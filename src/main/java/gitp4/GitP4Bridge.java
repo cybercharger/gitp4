@@ -286,13 +286,6 @@ class GitP4Bridge {
         logger.info(String.format("%1$d affected file(s):\n%2$s", affectedFiles.size(), StringUtils.join(affectedFiles, "\n")));
         Map<String, String> p4ExistingFiles = new HashMap<>();
 
-//        pagedActionOnFiles(gitP4DepotFileMap.values(),
-//                cur -> P4Fstat.getFileStats(cur).getFiles().forEach(info -> {
-//                    if (!P4Operation.delete.equals(info.getOperation())) // if the headAction is delete means this file has been deleted on P4
-//                        p4ExistingFiles.put(info.getDepotFile(), info.getClientFile());
-//                }),
-//                "checking p4 files...", option.getPageSize());
-
         logger.info("checking p4 files...");
         P4FileStatInfo fileStatInfo = P4Fstat.batchGetFileStats(gitP4DepotFileMap.values());
         fileStatInfo.getFiles().forEach(info -> {
@@ -349,10 +342,9 @@ class GitP4Bridge {
 
         String p4cl = P4Change.createEmptyChangeList(option.getMessage());
 
-//        pagedActionOnFiles(editSet, cur -> P4Edit.run(cur, p4cl), "p4 edit...", option.getPageSize());
         logger.info("p4 edit...");
         P4Edit.batch(editSet, p4cl);
-//        pagedActionOnFiles(deleteSet, cur -> P4Delete.run(cur, p4cl), "p4 delete...", option.getPageSize());
+
         logger.info("p4 delete..");
         P4Delete.batch(deleteSet, p4cl);
 
@@ -382,7 +374,8 @@ class GitP4Bridge {
             }
         }
 
-        pagedActionOnFiles(addSet, cur -> P4Add.run(cur, p4cl), "p4 add...", option.getPageSize());
+        logger.info("p4 add...");
+        P4Add.batch(addSet, p4cl);
         logger.info(String.format(Profile.submitHints, p4cl, latest.getCommit()));
     }
 
