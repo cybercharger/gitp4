@@ -27,6 +27,6 @@ class P4Modify {
         if (action == null) throw new NullPointerException("action");
         if (files == null) throw new NullPointerException("files");
         if (StringUtils.isBlank(changelist)) throw new NullPointerException("changelist");
-        P4XTemplate.run(String.format(X_CMD_FMT, action, changelist), files, cmdRes -> "");
+        P4XTemplate.run(String.format(X_CMD_FMT, action, changelist), action.toString(), files, cmdRes -> "");
     }
 }

@@ -31,6 +31,6 @@ public class P4Fstat {
     }
 
     public static P4FileStatInfo batchGetFileStats(Iterable<? extends CharSequence> files) throws Exception {
-        return P4XTemplate.run(FSTAT_CMD, files, P4FileStatInfo::create);
+        return P4XTemplate.run(FSTAT_CMD, FSTAT_CMD, files, P4FileStatInfo::create);
     }
 }

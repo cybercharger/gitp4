@@ -3,6 +3,7 @@ package gitp4.p4.cmd;
 import gitp4.CmdRunner;
 import gitp4.TempFileManager;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.log4j.Logger;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -16,16 +17,21 @@ import java.util.function.Function;
 class P4XTemplate {
     private static final String CMD_FMT = "p4 -x %1$s %2$s";
     static <T> T run(String cmd,
+                     String tmpFilePrefix,
                      Iterable<? extends CharSequence> lines,
                      Function<List<String>, T> resultHandler) throws Exception {
         if (StringUtils.isBlank(cmd)) throw new NullPointerException("cmd");
+        if (StringUtils.isBlank(tmpFilePrefix)) throw new NullPointerException("tmpFilePrefix");
         if (lines == null) throw new NullPointerException("lines");
         if (resultHandler == null) throw new NullPointerException("resultHandler");
         UUID id = UUID.randomUUID();
         Path tmpFilePath = null;
         try {
-            tmpFilePath = TempFileManager.getInstance().writeTempFile(String.format("%1$s_%2$s", cmd, id), lines, StandardCharsets.UTF_8);
+            tmpFilePath = TempFileManager.getInstance().writeTempFile(String.format("%1$s_%2$s", tmpFilePrefix, id), lines, StandardCharsets.UTF_8);
+            Logger.getLogger(P4XTemplate.class).info("writing file to " + tmpFilePath.toRealPath());
             final String arg = tmpFilePath.toString();
+            Logger.getLogger(P4XTemplate.class).info("running cmd " + String.format(CMD_FMT, arg, cmd));
+
             return CmdRunner.getP4CmdRunner().run(() -> String.format(CMD_FMT, arg, cmd), resultHandler);
         } finally {
             TempFileManager.getInstance().deleteTempFile(tmpFilePath);
