@@ -190,6 +190,9 @@ class GitP4Bridge {
 
         Properties config = GitP4Config.load(profile.getConfigFilePath());
         String expectedBranch = config.getProperty(GitP4Config.syncBranch);
+        if (expectedBranch == null) {
+            throw new GitP4Exception(String.format("Please set %1$s in your %2$s", GitP4Config.syncBranch, profile.getConfigFilePath()));
+        }
         String actualBranch = GitBranch.getCurrentBranch();
         if (!expectedBranch.equals(actualBranch)) {
             throw new GitP4Exception(String.format("Please switch to branch %s and then run this command again", expectedBranch));
@@ -224,6 +227,9 @@ class GitP4Bridge {
         checkWorkingDir(profile.getConfigFilePath());
         Properties config = GitP4Config.load(profile.getConfigFilePath());
         String expectedBranch = config.getProperty(GitP4Config.submitBranch);
+        if (expectedBranch == null) {
+            throw new GitP4Exception(String.format("Please set %1$s in your %2$s", GitP4Config.submitBranch, profile.getConfigFilePath()));
+        }
         String actualBranch = GitBranch.getCurrentBranch();
         if (!expectedBranch.equals(actualBranch)) {
             throw new GitP4Exception(String.format("Please switch to branch %s and then run this command again", expectedBranch));
