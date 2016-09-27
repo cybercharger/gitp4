@@ -390,12 +390,20 @@ class GitP4Bridge {
 
         logger.info("p4 add...");
         P4Add.batch(addSet, p4cl);
-        logger.info(String.format(Profile.submitHints, p4cl, latest.getCommit()));
-    }
 
-    @GitP4Operation(option = SubmitOption.class, description = "submit to p4")
-    private void submit(SubmitOption option) {
-
+        fileStatInfo = P4Fstat.batchGetFileStats(gitP4DepotFileMap.values());
+        outOfDate.clear();
+        fileStatInfo.getFiles().forEach(info -> {
+            if (info.getLastChangelist() > lastSync) {
+                outOfDate.add(info.getDepotFile());
+            }
+        });
+        if (outOfDate.isEmpty()) {
+            logger.info(String.format(Profile.submitHints, p4cl, latest.getCommit()));
+        } else {
+            logger.warn(String.format("Please double check the following files which are changed after %1$d:\n%2$s",
+                    lastSync, StringUtils.join(outOfDate, "\n")));
+        }
     }
 
     private static void pagedActionOnFiles(Collection<String> files, Consumer<String> action, String log, int pageSize) throws Exception {
