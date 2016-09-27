@@ -64,12 +64,16 @@ public class GitP4BridgeTest {
         option.parse();
         Assert.assertEquals("//nucleus/SANDBOX/catalog/...", ((CloneOption)option).getCloneString());
         Assert.assertEquals("views", ((CloneOption)option).getViewString());
+        Assert.assertEquals(CloneOption.DEF_P4_INT_BRANCH, ((CloneOption)option).getP4IntBranchName());
+        Assert.assertEquals(CloneOption.DEF_SUBMIT_BRANCH_NAME, ((CloneOption)option).getSubmitBranchName());
 
-        args = new String[] {"//nucleus/SANDBOX/catalog/...", "--view-map", "views"};
+        args = new String[] {"//nucleus/SANDBOX/catalog/...", "--view-map", "views", "-p", "test", "--p4-submit", "abc"};
         option = new CloneOption(args);
         option.parse();
         Assert.assertEquals("//nucleus/SANDBOX/catalog/...", ((CloneOption)option).getCloneString());
         Assert.assertEquals("views", ((CloneOption)option).getViewString());
+        Assert.assertEquals(String.format(CloneOption.P4_INT_BRANCH_NAME_FMT, "test", CloneOption.DEF_P4_INT_BRANCH), ((CloneOption)option).getP4IntBranchName());
+        Assert.assertEquals("abc", ((CloneOption)option).getSubmitBranchName());
 
         args = new String[] {"--message", "cl comments"};
         option = new P4clOperation(args);

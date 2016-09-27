@@ -15,7 +15,15 @@ import java.util.stream.Collectors;
  */
 public class CloneOption extends GitP4OperationOption {
     private final static String VIEW_ARG = "view-map";
+
     private final static String NO_EMPTY_CHK_ARG = "no-empty-check";
+
+    private final static String P4_INT_BRANCH = "p4-integ";
+    public final static String DEF_P4_INT_BRANCH = "p4-integ";
+    public final static String P4_INT_BRANCH_NAME_FMT = "%1$s-%2$s";
+
+    private final static String SUBMIT_BRANCH_NAME = "p4-submit";
+    public final static String DEF_SUBMIT_BRANCH_NAME = "master";
 
     public CloneOption(String[] args) {
         super("clone", args);
@@ -33,6 +41,19 @@ public class CloneOption extends GitP4OperationOption {
                 .desc("no empty check on current directory to clone p4 repository")
                 .build());
 
+        super.options.addOption(Option.builder()
+                .longOpt(P4_INT_BRANCH)
+                .argName(P4_INT_BRANCH)
+                .hasArg()
+                .desc("p4 integration branch name to create after clone is finished")
+                .build());
+
+        super.options.addOption(Option.builder()
+                .longOpt(SUBMIT_BRANCH_NAME)
+                .argName(SUBMIT_BRANCH_NAME)
+                .hasArg()
+                .desc("from which branch git changes should be submitted to p4")
+                .build());
     }
 
     @Override
@@ -63,5 +84,15 @@ public class CloneOption extends GitP4OperationOption {
 
     public boolean bypassEmptyCheck() {
         return line.hasOption(NO_EMPTY_CHK_ARG);
+    }
+
+    public String getP4IntBranchName() {
+        String branch = line.hasOption(P4_INT_BRANCH) ? line.getOptionValue(P4_INT_BRANCH) : DEF_P4_INT_BRANCH;
+        String profile = super.getProfile();
+        return StringUtils.isBlank(profile) ? branch : String.format(P4_INT_BRANCH_NAME_FMT, profile, branch);
+    }
+
+    public String getSubmitBranchName() {
+        return line.hasOption(SUBMIT_BRANCH_NAME) ? line.getOptionValue(SUBMIT_BRANCH_NAME) : DEF_SUBMIT_BRANCH_NAME;
     }
 }

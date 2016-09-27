@@ -25,7 +25,8 @@ public class P4Change {
             if (line.contains("<enter description here>")) break;
             newSpec.add(line);
         }
-        newSpec.add("\t" + description);
+        //TODO: how to resolve this? On linux space will be separated by runtime.exec, workaround this by replacing space with underscore
+        newSpec.add("\t" + description.replace(" ", "_"));
 
         final String cmd = CREATE_EMPTY_CL_CMD;
         return CmdRunner.getP4CmdRunner().run(() -> cmd,

@@ -145,6 +145,8 @@ class GitP4Bridge {
         config.setProperty(GitP4Config.viewMap, option.getViewString());
         config.setProperty(GitP4Config.lastSync, "-1");
         config.setProperty(GitP4Config.submitIgnore, profile.getConfigFilePath().toString());
+        config.setProperty(GitP4Config.syncBranch, option.getP4IntBranchName());
+        config.setProperty(GitP4Config.submitBranch, option.getSubmitBranchName());
         GitP4Config.save(config, profile.getConfigFilePath(), ".gitp4 config");
 
 
@@ -178,17 +180,21 @@ class GitP4Bridge {
         GitCommit.run("update git p4 config");
 
         GitTag.tag(Profile.lastSubmitTag, "git p4 clone");
-        GitCheckout.run(String.format("-b %s", Profile.p4IntBranchName));
+        GitCheckout.run(String.format("-b %s", option.getP4IntBranchName()));
     }
 
     @GitP4Operation(option = EmptyOption.class, description = "sync code from the specified p4 repository")
     private void sync(EmptyOption option) throws Exception {
         Profile profile = new Profile(option.getProfile(), true);
         checkWorkingDir(profile.getConfigFilePath());
-        if (!Files.exists(profile.getConfigFilePath())) {
-            throw new GitP4Exception("Please run git p4 clone first");
-        }
+
         Properties config = GitP4Config.load(profile.getConfigFilePath());
+        String expectedBranch = config.getProperty(GitP4Config.syncBranch);
+        String actualBranch = GitBranch.getCurrentBranch();
+        if (!expectedBranch.equals(actualBranch)) {
+            throw new GitP4Exception(String.format("Please switch to branch %s and then run this command again", expectedBranch));
+        }
+
         int lastChangelist = Integer.parseInt(config.getProperty(GitP4Config.lastSync)) + 1;
         P4RepositoryInfo repoInfo = new P4RepositoryInfo(config.getProperty(GitP4Config.p4Repo));
 
@@ -216,6 +222,12 @@ class GitP4Bridge {
     private void createP4Changelist(P4clOperation option) throws Exception {
         Profile profile = new Profile(option.getProfile(), true);
         checkWorkingDir(profile.getConfigFilePath());
+        Properties config = GitP4Config.load(profile.getConfigFilePath());
+        String expectedBranch = config.getProperty(GitP4Config.submitBranch);
+        String actualBranch = GitBranch.getCurrentBranch();
+        if (!expectedBranch.equals(actualBranch)) {
+            throw new GitP4Exception(String.format("Please switch to branch %s and then run this command again", expectedBranch));
+        }
 
         GitLogInfo latest = GitLog.getLatestCommit();
         logger.info("Commits submitted upto " + latest.getCommit());
@@ -244,7 +256,7 @@ class GitP4Bridge {
                 ignoredFiles.add(file);
                 continue;
             }
-            if (Utils.collectionContains(rawViews, Paths.get(file).toString()::startsWith)) {
+            if (rawViews.isEmpty() || Utils.collectionContains(rawViews, Paths.get(file).toString()::startsWith)) {
                 affectedFiles.add(file);
             } else {
                 throw new GitP4Exception(String.format("%s is not under the p4 view map, please update your .gitp4/config", file));
@@ -254,7 +266,6 @@ class GitP4Bridge {
         logger.info(String.format("IGNORED:\n%s", StringUtils.join(ignoredFiles, "\n")));
 
         final Set<String> finalCopy = affectedFiles;
-        Properties config = GitP4Config.load(profile.getConfigFilePath());
         P4RepositoryInfo p4Repo = new P4RepositoryInfo(config.getProperty(GitP4Config.p4Repo) + P4RepositoryInfo.TRIPLE_DOTS);
         List<P4FileOpenedInfo> p4Opened = P4Opened.run(p4Repo.getPathWithSubContents());
 
@@ -275,12 +286,20 @@ class GitP4Bridge {
         logger.info(String.format("%1$d affected file(s):\n%2$s", affectedFiles.size(), StringUtils.join(affectedFiles, "\n")));
         Map<String, String> p4ExistingFiles = new HashMap<>();
 
-        pagedActionOnFiles(gitP4DepotFileMap.values(),
-                cur -> P4Fstat.getFileStats(cur).getFiles().forEach(info -> {
-                    if (!P4Operation.delete.equals(info.getOperation())) // if the headAction is delete means this file has been deleted on P4
-                        p4ExistingFiles.put(info.getDepotFile(), info.getClientFile());
-                }),
-                "checking p4 files...", option.getMaxThreads());
+//        pagedActionOnFiles(gitP4DepotFileMap.values(),
+//                cur -> P4Fstat.getFileStats(cur).getFiles().forEach(info -> {
+//                    if (!P4Operation.delete.equals(info.getOperation())) // if the headAction is delete means this file has been deleted on P4
+//                        p4ExistingFiles.put(info.getDepotFile(), info.getClientFile());
+//                }),
+//                "checking p4 files...", option.getPageSize());
+
+        logger.info("checking p4 files...");
+        P4FileStatInfo fileStatInfo = P4Fstat.batchGetFileStats(gitP4DepotFileMap.values());
+        fileStatInfo.getFiles().forEach(info -> {
+            if (!P4Operation.delete.equals(info.getOperation())) {
+                p4ExistingFiles.put(info.getDepotFile(), info.getClientFile());
+            }
+        });
 
         P4Sync.syncToLatest(p4Repo);
 
@@ -330,9 +349,12 @@ class GitP4Bridge {
 
         String p4cl = P4Change.createEmptyChangeList(option.getMessage());
 
-        pagedActionOnFiles(editSet, cur -> P4Edit.run(cur, p4cl), "p4 edit...", option.getPageSize());
-
-        pagedActionOnFiles(deleteSet, cur -> P4Delete.run(cur, p4cl), "p4 delete...", option.getPageSize());
+//        pagedActionOnFiles(editSet, cur -> P4Edit.run(cur, p4cl), "p4 edit...", option.getPageSize());
+        logger.info("p4 edit...");
+        P4Edit.batch(editSet, p4cl);
+//        pagedActionOnFiles(deleteSet, cur -> P4Delete.run(cur, p4cl), "p4 delete...", option.getPageSize());
+        logger.info("p4 delete..");
+        P4Delete.batch(deleteSet, p4cl);
 
         List<Callable<Boolean>> theCallable = new LinkedList<>();
         for (Map.Entry<String, String> entry : copyMap.entrySet()) {

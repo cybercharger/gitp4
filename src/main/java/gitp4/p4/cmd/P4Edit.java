@@ -7,4 +7,8 @@ public class P4Edit {
     public static void run(String file, String changelist) {
         P4Modify.run(P4Modify.ModifyAction.edit, file, changelist);
     }
+
+    public static void batch(Iterable<? extends CharSequence> files, String changelist) throws Exception {
+        P4Modify.batch(P4Modify.ModifyAction.edit, files, changelist);
+    }
 }

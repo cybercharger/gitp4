@@ -2,7 +2,6 @@ package gitp4;
 
 import org.apache.commons.lang3.StringUtils;
 
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -17,7 +16,6 @@ public class Profile {
 
     public static final String GIT_P4_SYNC_CMD_FMT = "%1$s...@%2$d,#head";
     public static final String lastSubmitTag = "last_p4_submit";
-    public static final String p4IntBranchName = "p4-integ";
 
     public static final Path gitP4DirPath = Paths.get(".gitp4");
     public static final Path gitDirPath = Paths.get(".git");

@@ -25,6 +25,8 @@ public class GitP4Config {
     public static final String viewMap = "gitp4.viewmap";
     public static final String lastSync = "gitp4.last.sync";
     public static final String submitIgnore = "gitp4.submit.ignore";
+    public static final String syncBranch = "gitp4.sync.branch";
+    public static final String submitBranch = "gitp4.submit.branch";
     public final static char COMMA = ',';
 
     static Properties load(Path filePath) throws IOException {
