@@ -16,6 +16,7 @@ public class P4FileStatInfo {
     private static final String CLIENT_FILE_TAG = "... clientFile ";
     private static final String ACTION_TAG = "... headAction ";
     private static final String REVISION_TAG = "... headRev ";
+    private static final String CHANGELIST_TAG = "... headChange ";
 
     public static final P4FileStatInfo EMPTY = new P4FileStatInfo(Collections.emptyList(), "EMPTY");
 
@@ -36,20 +37,21 @@ public class P4FileStatInfo {
     }
 
     private static P4FileInfoEx parseFile(List<String> section) {
-        String depotFile = null, clientFile = null, revision = null, operation = null;
+        String depotFile = null, clientFile = null, revision = null, operation = null, cl = null;
         for (String line : section) {
             if (line.startsWith(DEPOT_FILE_TAG)) depotFile = line.substring(DEPOT_FILE_TAG.length());
             else if (line.startsWith(ACTION_TAG)) operation = line.substring(ACTION_TAG.length());
             else if (line.startsWith(CLIENT_FILE_TAG)) clientFile = line.substring(CLIENT_FILE_TAG.length());
             else if (line.startsWith(REVISION_TAG)) revision = line.substring(REVISION_TAG.length());
+            else if (line.startsWith(CHANGELIST_TAG)) cl = line.substring(CHANGELIST_TAG.length());
         }
-        if (depotFile == null || revision == null || operation == null) {
+        if (depotFile == null || revision == null || operation == null || cl == null) {
             throw new IllegalStateException("Failed to parse file info from\n" + StringUtils.join(section, "\n"));
         }
         if (clientFile == null) {
             throw new GitP4Exception("Cannot find client file info, please check whether files are properly mapped to local client");
         }
-        return new P4FileInfoEx(depotFile, clientFile, P4Operation.parse(operation), Integer.parseInt(revision));
+        return new P4FileInfoEx(depotFile, clientFile, P4Operation.parse(operation), Integer.parseInt(revision), Integer.parseInt(cl));
     }
 
     private static String parseDesc(List<String> desc) {

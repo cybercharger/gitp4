@@ -8,6 +8,7 @@ import org.apache.commons.cli.Option;
 public class P4clOperation extends GitP4OperationOption {
     private final static String MSG_ARG = "message";
     private final static String DRYRUN_ARG = "dry-run";
+    private final static String FORCE_ARG = "force";
 
     public P4clOperation(String[] args) {
         super("p4cl", args);
@@ -17,9 +18,15 @@ public class P4clOperation extends GitP4OperationOption {
                 .hasArg()
                 .required()
                 .build());
+
         super.options.addOption(Option.builder("n")
                 .argName(DRYRUN_ARG)
                 .longOpt(DRYRUN_ARG)
+                .build());
+
+        super.options.addOption(Option.builder()
+                .argName(FORCE_ARG)
+                .longOpt(FORCE_ARG)
                 .build());
     }
 
@@ -29,5 +36,9 @@ public class P4clOperation extends GitP4OperationOption {
 
     public boolean dryrun() {
         return line.hasOption(DRYRUN_ARG);
+    }
+
+    public boolean isForced() {
+        return line.hasOption(FORCE_ARG);
     }
 }

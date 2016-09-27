@@ -287,12 +287,26 @@ class GitP4Bridge {
         Map<String, String> p4ExistingFiles = new HashMap<>();
 
         logger.info("checking p4 files...");
+        int lastSync = Integer.parseInt(config.getProperty(GitP4Config.lastSync));
+        Set<String> outOfDate = new HashSet<>();
         P4FileStatInfo fileStatInfo = P4Fstat.batchGetFileStats(gitP4DepotFileMap.values());
         fileStatInfo.getFiles().forEach(info -> {
             if (!P4Operation.delete.equals(info.getOperation())) {
                 p4ExistingFiles.put(info.getDepotFile(), info.getClientFile());
             }
+            if (info.getLastChangelist() > lastSync) {
+                outOfDate.add(info.getDepotFile());
+            }
         });
+
+        if (!outOfDate.isEmpty()) {
+            String msg = String.format("Files are changed after changelist %1$d:\n%2$s", lastSync, StringUtils.join(outOfDate, "\n"));
+            if (!option.isForced()) {
+                throw new GitP4Exception(msg);
+            } else {
+                logger.warn(msg);
+            }
+        }
 
         P4Sync.syncToLatest(p4Repo);
 

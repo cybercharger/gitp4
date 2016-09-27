@@ -163,13 +163,13 @@ public class AppTest {
                 "//nucleus/SANDBOX/catalog/tomcat.app/src/main/webapp/config/devbox/search.properties",
                 "D:\\EASAP_chriskang_EASHDPDESK075_70\\nucleus\\SANDBOX\\catalog\\tomcat.app\\src\\main\\webapp\\config\\devbox\\search.properties",
                 P4Operation.integrate,
-                5);
+                5, 282987);
         Assert.assertEquals(file, info.getFiles().get(0));
         file = new P4FileInfoEx(
                 "//nucleus/SANDBOX/catalog/tomcat.app/src/main/webapp/config/prod/mysql.properties",
                 "D:\\EASAP_chriskang_EASHDPDESK075_70\\nucleus\\SANDBOX\\catalog\\tomcat.app\\src\\main\\webapp\\config\\prod\\mysql.properties",
                 P4Operation.add,
-                6);
+                6, 282987);
         Assert.assertEquals(file, info.getFiles().get(1));
     }
 
