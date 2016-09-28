@@ -19,8 +19,8 @@ public class GitLog {
     private static final String GIT_LOG_CMD = "git log %1$s %2$s";
     private static final String GIT_LOG_LATEST_COMMIT = "git log -1 --pretty=oneline";
     private static Set<Pattern> patterns = new HashSet<Pattern>() {{
-        add(Pattern.compile("[^\\s\\.]+\\.\\.[^\\s\\.]+"));
-        add(Pattern.compile("[^\\s\\.]+\\s+[^\\s\\.]+"));
+        add(Pattern.compile("[^\\s]+\\.\\.[^\\s]+"));
+        add(Pattern.compile("[^\\s]+\\s+[^\\s]+"));
     }};
 
     public static List<GitLogInfo> run(final String rangeInfo) {

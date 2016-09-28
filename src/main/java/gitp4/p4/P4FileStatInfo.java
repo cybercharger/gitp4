@@ -1,6 +1,7 @@
 package gitp4.p4;
 
 import gitp4.GitP4Exception;
+import gitp4.cli.P4clOperation;
 import org.apache.commons.lang3.StringUtils;
 
 import java.util.*;
@@ -37,7 +38,11 @@ public class P4FileStatInfo {
     }
 
     private static P4FileInfoEx parseFile(List<String> section) {
-        String depotFile = null, clientFile = null, revision = null, operation = null, cl = null;
+        String depotFile = null;
+        String clientFile = null;
+        String revision = "-1";
+        String operation = P4Operation.unknown.toString();
+        String cl = "-1";
         for (String line : section) {
             if (line.startsWith(DEPOT_FILE_TAG)) depotFile = line.substring(DEPOT_FILE_TAG.length());
             else if (line.startsWith(ACTION_TAG)) operation = line.substring(ACTION_TAG.length());
@@ -45,12 +50,14 @@ public class P4FileStatInfo {
             else if (line.startsWith(REVISION_TAG)) revision = line.substring(REVISION_TAG.length());
             else if (line.startsWith(CHANGELIST_TAG)) cl = line.substring(CHANGELIST_TAG.length());
         }
-        if (depotFile == null || revision == null || operation == null || cl == null) {
+        if (depotFile == null) {
             throw new IllegalStateException("Failed to parse file info from\n" + StringUtils.join(section, "\n"));
         }
+
         if (clientFile == null) {
             throw new GitP4Exception("Cannot find client file info, please check whether files are properly mapped to local client");
         }
+
         return new P4FileInfoEx(depotFile, clientFile, P4Operation.parse(operation), Integer.parseInt(revision), Integer.parseInt(cl));
     }
 
@@ -77,14 +84,14 @@ public class P4FileStatInfo {
             } else {
                 if ("".equals(cur)) continue;
                 if (section == null) {
-                    throw new IllegalStateException(String.format("Failed to split: %s", StringUtils.join(cmdRes, "\n")));
+                    continue; //just bypass current line if there no cared section created;
                 }
                 section.add(cur.trim());
             }
         }
         while (it.hasNext()) {
             if (section == null) {
-                throw new IllegalStateException(String.format("Failed to split: %s", StringUtils.join(cmdRes, "\n")));
+                break; //just bypass current line if there no cared section created;
             }
             section.add(it.next());
         }

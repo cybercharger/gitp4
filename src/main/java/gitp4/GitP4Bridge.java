@@ -179,7 +179,7 @@ class GitP4Bridge {
         GitAdd.run(profile.getConfigFilePath().toString());
         GitCommit.run("update git p4 config");
 
-        GitTag.tag(Profile.lastSubmitTag, "git p4 clone");
+        GitTag.tag(profile.getLastSubmitTag(), "git p4 clone");
         GitCheckout.run(String.format("-b %s", option.getP4IntBranchName()));
     }
 
@@ -195,7 +195,7 @@ class GitP4Bridge {
         }
         String actualBranch = GitBranch.getCurrentBranch();
         if (!expectedBranch.equals(actualBranch)) {
-            throw new GitP4Exception(String.format("Please switch to branch %s and then run this command again", expectedBranch));
+            throw new GitP4Exception(String.format("Please switch to branch [%s] and then run this command again", expectedBranch));
         }
 
         int lastChangelist = Integer.parseInt(config.getProperty(GitP4Config.lastSync)) + 1;
@@ -232,14 +232,14 @@ class GitP4Bridge {
         }
         String actualBranch = GitBranch.getCurrentBranch();
         if (!expectedBranch.equals(actualBranch)) {
-            throw new GitP4Exception(String.format("Please switch to branch %s and then run this command again", expectedBranch));
+            throw new GitP4Exception(String.format("Please switch to branch [%s] and then run this command again", expectedBranch));
         }
 
         GitLogInfo latest = GitLog.getLatestCommit();
         logger.info("Commits submitted upto " + latest.getCommit());
-
-        final String range = (GitTag.tagExisting(Profile.lastSubmitTag)) ?
-                String.format("%1$s..%2$s", Profile.lastSubmitTag, latest.getCommit()) :
+        logger.info("Checking tag: " + profile.getLastSubmitTag());
+        final String range = (GitTag.tagExisting(profile.getLastSubmitTag())) ?
+                String.format("%1$s..%2$s", profile.getLastSubmitTag(), latest.getCommit()) :
                 String.format("%1$s %2$s", GitRevList.getFirstCommit(), latest.getCommit());
 
         List<GitLogInfo> logInfo = GitLog.run(range);

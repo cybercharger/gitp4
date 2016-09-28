@@ -8,7 +8,8 @@ public enum P4Operation {
     edit,
     delete,
     integrate,
-    branch;
+    branch,
+    unknown;
 
     private static final String MOVE_SLASH = "move/";
 

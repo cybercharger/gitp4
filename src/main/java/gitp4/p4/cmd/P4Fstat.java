@@ -33,4 +33,8 @@ public class P4Fstat {
     public static P4FileStatInfo batchGetFileStats(Iterable<? extends CharSequence> files) throws Exception {
         return P4XTemplate.run(FSTAT_CMD, FSTAT_CMD, files, P4FileStatInfo::create);
     }
+
+    public static P4FileStatInfo batchGetFileStatsAfter(Iterable<? extends CharSequence> files, String changelist) throws Exception {
+        return P4XTemplate.run(FSTAT_CMD, FSTAT_CMD, files, P4FileStatInfo::create);
+    }
 }

@@ -28,10 +28,7 @@ class P4XTemplate {
         Path tmpFilePath = null;
         try {
             tmpFilePath = TempFileManager.getInstance().writeTempFile(String.format("%1$s_%2$s", tmpFilePrefix, id), lines, StandardCharsets.UTF_8);
-            Logger.getLogger(P4XTemplate.class).info("writing file to " + tmpFilePath.toRealPath());
             final String arg = tmpFilePath.toString();
-            Logger.getLogger(P4XTemplate.class).info("running cmd " + String.format(CMD_FMT, arg, cmd));
-
             return CmdRunner.getP4CmdRunner().run(() -> String.format(CMD_FMT, arg, cmd), resultHandler);
         } finally {
             TempFileManager.getInstance().deleteTempFile(tmpFilePath);

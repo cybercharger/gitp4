@@ -126,7 +126,7 @@ public class AppTest {
 
     @Test
     public void testP4FileStatsInfo() {
-        final String input = "... depotFile //nucleus/SANDBOX/catalog/tomcat.app/src/main/webapp/config/devbox/search.properties\n" +
+        String input = "... depotFile //nucleus/SANDBOX/catalog/tomcat.app/src/main/webapp/config/devbox/search.properties\n" +
                 "... clientFile D:\\EASAP_chriskang_EASHDPDESK075_70\\nucleus\\SANDBOX\\catalog\\tomcat.app\\src\\main\\webapp\\config\\devbox\\search.properties\n" +
                 "... isMapped \n" +
                 "... headAction integrate\n" +
@@ -171,6 +171,92 @@ public class AppTest {
                 P4Operation.add,
                 6, 282987);
         Assert.assertEquals(file, info.getFiles().get(1));
+
+        input = "deploy.sh - no such file(s).\n" +
+                "fullcycle.cmd - no such file(s).\n" +
+                "fullcycle.sh - no such file(s).\n" +
+                "loadalloffers.bat - no such file(s).\n" +
+                "loadalloffers.sh - no such file(s).\n";
+        info = P4FileStatInfo.create(Arrays.asList(StringUtils.split(input, "\n")));
+        Assert.assertEquals(0, info.getFiles().size());
+
+        input = "deploy.sh - no such file(s).\n" +
+                "fullcycle.cmd - no such file(s).\n" +
+                "fullcycle.sh - no such file(s).\n" +
+                "loadalloffers.bat - no such file(s).\n" +
+                "loadalloffers.sh - no such file(s).\n" +
+                "... depotFile //nucleus/RELEASES/REL430.0/catalog/OneBoxDeploy.sh\n" +
+                "... clientFile E:\\EASAP_chriskang_ws5\\nucleus\\RELEASES\\REL430.0\\catalog\\OneBoxDeploy.sh\n" +
+                "... isMapped\n" +
+                "... headAction integrate\n" +
+                "... headType xtext\n" +
+                "... headTime 1470197255\n" +
+                "... headRev 4\n" +
+                "... headChange 312722\n" +
+                "... headModTime 1469749522\n" +
+                "... haveRev 4\n" +
+                "\n" +
+                "... depotFile //nucleus/RELEASES/REL430.0/catalog/OneBoxDeploy.sh\n" +
+                "... clientFile E:\\EASAP_chriskang_ws5\\nucleus\\RELEASES\\REL430.0\\catalog\\OneBoxDeploy.sh\n" +
+                "... isMapped\n" +
+                "... headAction integrate\n" +
+                "... headType xtext\n" +
+                "... headTime 1469644009\n" +
+                "... headRev 3\n" +
+                "... headChange 312420\n" +
+                "... headModTime 1469641501\n" +
+                "... haveRev 4\n" +
+                "\n" +
+                "... depotFile //nucleus/RELEASES/REL430.0/catalog/pom.xml\n" +
+                "... clientFile E:\\EASAP_chriskang_ws5\\nucleus\\RELEASES\\REL430.0\\catalog\\pom.xml\n" +
+                "... isMapped\n" +
+                "... headAction edit\n" +
+                "... headType text\n" +
+                "... headTime 1471940199\n" +
+                "... headRev 5\n" +
+                "... headChange 313654\n" +
+                "... headModTime 1471939068\n" +
+                "... haveRev 5\n" +
+                "... ... otherOpen0 EAHQ\\jdai@Work_1666\n" +
+                "... ... otherAction0 edit\n" +
+                "... ... otherChange0 312971\n" +
+                "... ... otherOpen1 EASAP\\ianlu@ianlu_mac_air\n" +
+                "... ... otherAction1 edit\n" +
+                "... ... otherChange1 313194\n" +
+                "... ... otherOpen 2";
+
+        info = P4FileStatInfo.create(Arrays.asList(StringUtils.split(input, "\n")));
+        Assert.assertEquals(3, info.getFiles().size());
+        file = new P4FileInfoEx(
+                "//nucleus/RELEASES/REL430.0/catalog/OneBoxDeploy.sh",
+                "E:\\EASAP_chriskang_ws5\\nucleus\\RELEASES\\REL430.0\\catalog\\OneBoxDeploy.sh",
+                P4Operation.integrate,
+                4, 312722);
+        Assert.assertEquals(file, info.getFiles().get(0));
+
+        file = new P4FileInfoEx(
+                "//nucleus/RELEASES/REL430.0/catalog/OneBoxDeploy.sh",
+                "E:\\EASAP_chriskang_ws5\\nucleus\\RELEASES\\REL430.0\\catalog\\OneBoxDeploy.sh",
+                P4Operation.integrate,
+                3, 312420);
+        Assert.assertEquals(file, info.getFiles().get(1));
+
+        file = new P4FileInfoEx(
+                "//nucleus/RELEASES/REL430.0/catalog/pom.xml",
+                "E:\\EASAP_chriskang_ws5\\nucleus\\RELEASES\\REL430.0\\catalog\\pom.xml",
+                P4Operation.edit,
+                5, 313654);
+        Assert.assertEquals(file, info.getFiles().get(2));
+
+        input = "... depotFile //nucleus/MAIN/catalog/catalog.db/src/main/sql/REL440/data/locale.sql\n" +
+                "... clientFile /home/chris/Perforce/EASAP_chriskang_chris-ubuntu_3031/nucleus/MAIN/catalog/catalog.db/src/main/sql/REL440/data/locale.sql\n" +
+                "... isMapped\n" +
+                "... action add\n" +
+                "... change 315421\n" +
+                "... type text\n" +
+                "... actionOwner EASAP\\chriskang";
+        info = P4FileStatInfo.create(Arrays.asList(StringUtils.split(input, "\n")));
+        Assert.assertEquals(1, info.getFiles().size());
     }
 
     @Test
