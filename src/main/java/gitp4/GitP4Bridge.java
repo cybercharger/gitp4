@@ -8,6 +8,7 @@ import gitp4.p4.*;
 import gitp4.p4.cmd.*;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
+import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -410,6 +411,22 @@ class GitP4Bridge {
             logger.warn(String.format("Please double check the following files which are changed after %1$d:\n%2$s",
                     lastSync, StringUtils.join(outOfDate, "\n")));
         }
+    }
+
+//    @GitP4Operation(option = ResyncOption.class, operationName = "resync", description = "resync p4 changelists")
+    private void resync(ResyncOption option) throws IOException {
+        Profile profile = new Profile(option.getProfile(), true);
+        checkWorkingDir(profile.getConfigFilePath());
+        Properties config = GitP4Config.load(profile.getConfigFilePath());
+        String expectedBranch = config.getProperty(GitP4Config.syncBranch);
+        if (expectedBranch == null) {
+            throw new GitP4Exception(String.format("Please set %1$s in your %2$s", GitP4Config.syncBranch, profile.getConfigFilePath()));
+        }
+        String actualBranch = GitBranch.getCurrentBranch();
+        if (!expectedBranch.equals(actualBranch)) {
+            throw new GitP4Exception(String.format("Please switch to branch [%s] and then run this command again", expectedBranch));
+        }
+        throw new NotImplementedException();
     }
 
     private static void pagedActionOnFiles(Collection<String> files, Consumer<String> action, String log, int pageSize) throws Exception {

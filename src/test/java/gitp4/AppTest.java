@@ -8,8 +8,13 @@ import junit.framework.Assert;
 import org.apache.commons.lang3.StringUtils;
 import org.junit.Test;
 
+import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Unit test for simple App.
@@ -277,6 +282,10 @@ public class AppTest {
         Assert.assertEquals("//nucleus/SANDBOX/catalog/", info.getPath());
         Assert.assertEquals("//nucleus/SANDBOX/catalog/...", info.getPathWithSubContents());
 
+        info = new P4RepositoryInfo("//nucleus/RELEASES/REL440.0/...@265261,#head");
+        Assert.assertEquals("//nucleus/RELEASES/REL440.0/", info.getPath());
+        Assert.assertEquals("//nucleus/RELEASES/REL440.0/...", info.getPathWithSubContents());
+
         Exception exp = null;
         try {
             new P4RepositoryInfo("//nucleus/SANDBOX/catalog...");
@@ -409,4 +418,82 @@ public class AppTest {
             Assert.assertEquals(String.format("file: %1$s", entry.getKey()), expected, Utils.collectionContains(pattern, entry.getKey()::startsWith));
         }
     }
+
+//    @Test
+//    public void gitMissed() throws Exception {
+//        List<String> org = Files.readAllLines(Paths.get("d:\\tmp\\git_missed_440"));
+//        final String prefix = "... clientFile ";
+//        final String p4Local = "E:\\EASAP_chriskang_ws5\\nucleus\\RELEASES\\REL440.0\\";
+//        final String gitLocal = "e:\\bbws\\catalog\\";
+//        final String diffCmd = "diff";
+//        final String copyCmd = "cp";
+//        final String rmCmd = "rm";
+//        String[] map = new String[]{
+//                "catalog",
+//                "catalog-integration",
+//                "catalog.ui-integration",
+//                "liquibase.data",
+//                "pom.parent",
+//                "test"
+//        };
+//        Set<String> cared = Arrays.stream(map).map(cur -> p4Local + cur + File.separator).collect(Collectors.toSet());
+//        P4FileStatInfo fstatInfo = P4FileStatInfo.create(org);
+//
+//        Map<String, P4FileInfoEx> fileMap = new HashMap<>();
+//
+//        for (P4FileInfoEx info : fstatInfo.getFiles()) {
+//
+//            boolean needCheck = cared.stream().filter(info.getClientFile()::startsWith).findAny().isPresent();
+//            if (!needCheck) continue;
+//
+//            if (fileMap.containsKey(info.getDepotFile())) {
+//                if (info.getLastChangelist() > fileMap.get(info.getDepotFile()).getLastChangelist()) {
+//                    System.out.println(String.format("replace:\n%1$s\n%2$s", fileMap.get(info.getDepotFile()), info));
+//                    fileMap.put(info.getDepotFile(), info);
+//                }
+//            } else {
+//                fileMap.put(info.getDepotFile(), info);
+//            }
+//
+//        }
+//
+//
+//        Files.write(Paths.get("d:\\tmp\\git_missed_files"), fileMap.keySet(), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+//
+//        Set<String> bashList = new HashSet<>();
+//        Set<String> sameList = new HashSet<>();
+//        CmdRunner cmd = new CmdRunner((s, strings) -> System.err.println(String.format("Error: %1$s, %2$s", s, StringUtils.join(strings, "\n"))));
+//        fileMap.entrySet().forEach(entry -> {
+//            String p4File = entry.getValue().getClientFile();
+//            String gitFile = p4File.replace(p4Local, gitLocal);
+//            System.out.println(entry.getValue());
+//            try {
+//                if (P4Operation.delete.equals(entry.getValue().getOperation())
+//                        && !Utils.fileExists(entry.getValue().getClientFile())) {
+//                    if (Files.exists(Paths.get(gitFile))) {
+//                        bashList.add(rmCmd + " " + entry.getValue().getClientFile().replace(p4Local, gitLocal));
+//                    } else {
+//                        System.out.println("ignore non-existing file " + p4File);
+//                    }
+//                } else {
+//                    if (!Files.exists(Paths.get(gitFile))) {
+//                        bashList.add(String.format("%3$s \"%1$s\" \"%2$s\"", p4File, gitFile, copyCmd));
+//                    } else {
+//                        String cmdToRun = String.format("%3$s \"%1$s\" \"%2$s\"", p4File, gitFile, diffCmd);
+//                        boolean different = cmd.run(() -> cmdToRun, cmdRes -> (cmdRes != null && !cmdRes.isEmpty()));
+//                        if (!different) {
+//                            sameList.add(cmdToRun);
+//                        } else {
+//                            bashList.add(String.format("%3$s \"%1$s\" \"%2$s\"", p4File, gitFile, copyCmd));
+//                        }
+//                    }
+//                }
+//            } catch (IOException e) {
+//                e.printStackTrace();
+//            }
+//        });
+//
+//        Files.write(Paths.get("d:\\tmp\\git_bash.sh"), bashList, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+//        Files.write(Paths.get("d:\\tmp\\same.sh"), sameList, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+//    }
 }
