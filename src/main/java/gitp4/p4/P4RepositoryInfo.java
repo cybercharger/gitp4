@@ -15,6 +15,7 @@ import java.util.regex.Pattern;
 public class P4RepositoryInfo {
     public static final String SLASH = "/";
     public static final String TRIPLE_DOTS = "...";
+    public static final String TRIPLE_DOTS_SPLIT_PTRN = "\\.\\.\\.";
     private static final String VALID_PATH_HINT = "Supported formats are:\n" +
             "//path/to/your/repository/...\n" +
             "//path/to/your/repository/...#head\n" +
@@ -38,7 +39,7 @@ public class P4RepositoryInfo {
             throw new GitP4Exception(String.format("%1$s is not a supported format for p4 repo. %2$s",
                     path, VALID_PATH_HINT));
         }
-        String[] sections = StringUtils.split(path, TRIPLE_DOTS);
+        String[] sections = path.split(TRIPLE_DOTS_SPLIT_PTRN);
         if (sections.length == 2) {
             Optional<Pattern> optional = Arrays.stream(rangePatterns).filter(cur -> cur.matcher(sections[1]).matches()).findFirst();
             if (!optional.isPresent()) {
