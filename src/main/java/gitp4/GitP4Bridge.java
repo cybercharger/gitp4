@@ -366,7 +366,7 @@ class GitP4Bridge {
         logger.info("p4 edit...");
         P4Edit.batch(editSet, p4cl);
 
-        logger.info("p4 delete..");
+        logger.info("p4 delete...");
         P4Delete.batch(deleteSet, p4cl);
 
         List<Callable<Boolean>> theCallable = new LinkedList<>();

@@ -1,5 +1,7 @@
 package gitp4;
 
+import org.apache.commons.lang3.StringUtils;
+
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
@@ -12,6 +14,7 @@ import java.nio.file.StandardOpenOption;
  */
 public class TempFileManager {
     private final static String TMP_DIR = "tmp";
+    public final static String KEEP_TMP_FLAG = "gitp4.keeptmp";
     private final static Path tmpDirPath = Paths.get(Profile.gitP4DirPath.toString(), TMP_DIR);
 
 
@@ -47,6 +50,7 @@ public class TempFileManager {
     }
 
     public boolean deleteTempFile(Path filePath) throws IOException {
-        return filePath == null || Files.deleteIfExists(filePath);
+        boolean keepTemp = Boolean.parseBoolean(System.getenv(KEEP_TMP_FLAG));
+        return !keepTemp && (filePath == null || Files.deleteIfExists(filePath));
     }
 }

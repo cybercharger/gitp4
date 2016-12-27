@@ -1,7 +1,7 @@
 package gitp4.cli;
 
 import gitp4.GitP4Exception;
-import gitp4.Profile;
+import gitp4.TempFileManager;
 import org.apache.commons.cli.*;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
@@ -18,6 +18,8 @@ public abstract class GitP4OperationOption {
     protected static final int DEF_PAGE_SIZE = 20;
     protected static final String P4_SYNC_DELAY_ARG = "p4-sync-delay";
     protected static final int DEF_P4_SYNC_DELAY = 50;
+    protected static final String KEEP_TMP_FILES_ARG = "keep-tmp";
+
     private final Options helpOptions = new Options();
     protected final Options options = new Options();
     protected CommandLine line;
@@ -60,6 +62,12 @@ public abstract class GitP4OperationOption {
                 .hasArg()
                 .desc("Milliseconds of delay after p4 sync")
                 .build());
+
+        options.addOption(Option.builder()
+                .argName(KEEP_TMP_FILES_ARG)
+                .longOpt(KEEP_TMP_FILES_ARG)
+                .desc("keep all temp files, which can be found @ .gitp4/tmp/")
+                .build());
     }
 
     final public Options getOptions() {
@@ -76,7 +84,7 @@ public abstract class GitP4OperationOption {
         } catch (ParseException e) {
             try {
                 line = parser.parse(options, args, false);
-                onParse();
+                baseOnParse();
             } catch (ParseException exp) {
                 Logger.getLogger(this.getClass()).error("Parsing failed: " + exp.getMessage());
                 throw new GitP4Exception(exp.getMessage());
@@ -109,6 +117,13 @@ public abstract class GitP4OperationOption {
         int ret = Integer.parseInt(line.getOptionValue(optionName));
         if (ret <= 0) throw new GitP4Exception(String.format("%s must be greater than 0", optionName));
         return ret;
+    }
+
+    private void baseOnParse() throws ParseException {
+        if (line != null && line.getOptionValue(KEEP_TMP_FILES_ARG) != null) {
+            System.setProperty(TempFileManager.KEEP_TMP_FLAG, Boolean.TRUE.toString());
+        }
+        onParse();
     }
 
     protected void onParse() throws ParseException {
