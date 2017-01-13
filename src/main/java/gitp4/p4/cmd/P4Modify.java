@@ -1,6 +1,7 @@
 package gitp4.p4.cmd;
 
 import gitp4.CmdRunner;
+import gitp4.Utils;
 import org.apache.commons.lang3.StringUtils;
 
 /**
@@ -13,14 +14,14 @@ class P4Modify {
         delete
     }
 
-    private static final String CMD_FMT = "p4 %3$s -c %1$s %2$s";
-    private static final String X_CMD_FMT = "%1$s -c %2$s";
+    private static final String CMD_FMT = Utils.getArgFormat("p4 %3$s -c %1$s %2$s");
+    private static final String X_CMD_FMT = Utils.getArgFormat("%1$s -c %2$s");
 
     public static void run(ModifyAction action, String file, String changelist) {
         if (action == null) throw new NullPointerException("action");
         if (StringUtils.isBlank(file)) throw new NullPointerException("file");
         if (StringUtils.isBlank(changelist)) throw new NullPointerException("changelist");
-        CmdRunner.getP4CmdRunner().run(() -> String.format(CMD_FMT, changelist, file, action), cmdRes -> "");
+        CmdRunner.getP4CmdRunner().run(() -> Utils.convertToArgArray(String.format(CMD_FMT, changelist, file, action)), cmdRes -> "");
     }
 
     public static void batch(ModifyAction action, Iterable<? extends CharSequence> files, String changelist) throws Exception {

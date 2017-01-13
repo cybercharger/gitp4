@@ -10,10 +10,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -25,6 +22,8 @@ import java.util.function.Predicate;
 public class Utils {
     private static final Logger logger = Logger.getLogger(Utils.class);
     private static final String[] EMPTY_STRING_ARRAY = new String[0];
+    private static final String ARG_DELIMITER = "${delimiter}";
+    private static final String ARG_DELIMITER_REGEX = "\\$\\{delimiter\\}";
 
     public static boolean isValidGitCommitId(String commitId) {
         return !StringUtils.isBlank(commitId) &&
@@ -98,49 +97,18 @@ public class Utils {
         }
     }
 
-    public static String[] convertToArgArray(String args) {
-        if (StringUtils.isBlank(args)) return EMPTY_STRING_ARRAY;
-        args = args.trim();
-        final char quote = '\'';
-        final char doubleQuote = '"';
-        final char space = ' ';
-        char nextEnd = space;
-        StringBuilder arg = new StringBuilder();
-        List<String> result = new LinkedList<>();
-        for (char c : args.toCharArray()) {
-            if (c == doubleQuote || c == quote) {
-                if (nextEnd == c) {
-                    result.add(arg.toString());
-                    arg = new StringBuilder();
-                    nextEnd = space;
-                } else if (nextEnd == space) {
-                    if (arg.length() > 0) {
-                        result.add(arg.toString());
-                        arg = new StringBuilder();
-                    }
-                    nextEnd = c;
-                } else {
-                    arg.append(c);
-                }
-            } else if (c == space) {
-                if (nextEnd != space) {
-                    arg.append(c);
-                } else {
-                    if (arg.length() > 0) {
-                        result.add(arg.toString());
-                        arg = new StringBuilder();
-                    }
-                }
-            } else {
-                arg.append(c);
-            }
-        }
-        if (arg.length() > 0) result.add(arg.toString());
-        return result.toArray(new String[result.size()]);
-    }
-
     public static <T> boolean collectionContains(Collection<T> collection, Predicate<T> predicate) {
         if (predicate == null) throw new NullPointerException("predicate");
         return !(collection == null || collection.isEmpty()) && collection.stream().filter(predicate).findAny().isPresent();
+    }
+
+    public static String[] convertToArgArray(String args) {
+        if (StringUtils.isBlank(args)) throw new NullPointerException("args");
+        return Arrays.stream(args.split(ARG_DELIMITER_REGEX)).filter(s -> StringUtils.isNotBlank(s.trim())).toArray(String[]::new);
+    }
+
+    public static String getArgFormat(String argFormat) {
+        if (StringUtils.isBlank(argFormat)) throw new NullPointerException("argFormat");
+        return argFormat.replace(" ", ARG_DELIMITER);
     }
 }

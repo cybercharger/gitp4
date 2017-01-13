@@ -14,12 +14,12 @@ import java.nio.file.StandardOpenOption;
  * Created by chriskang on 8/24/2016.
  */
 public class GitCommit {
-    private static final String GIT_COMMIT_CMD = "git commit -m\"%s\"";
-    private static final String GIT_COMMIT_F_CMD = "git commit -F %s";
+    private static final String GIT_COMMIT_CMD = Utils.getArgFormat("git commit -m \"%s\"");
+    private static final String GIT_COMMIT_F_CMD = Utils.getArgFormat("git commit -F %s");
 
     public static void run(final String comments) {
         if (StringUtils.isBlank(comments)) throw new NullPointerException("comments");
-        CmdRunner.getGitCmdRunner().run(() -> String.format(GIT_COMMIT_CMD, comments), (cmdRes) -> "");
+        CmdRunner.getGitCmdRunner().run(() -> Utils.convertToArgArray(String.format(GIT_COMMIT_CMD, comments)), (cmdRes) -> "");
     }
 
     public static void commitFromFile(final String comments, final String changelist) {
@@ -27,7 +27,7 @@ public class GitCommit {
             if (StringUtils.isBlank(comments)) throw new NullPointerException("comments");
             Path tmpFile = Paths.get(changelist);
             Files.write(tmpFile, comments.getBytes(), StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-            CmdRunner.getGitCmdRunner().run(() -> String.format(GIT_COMMIT_F_CMD, Paths.get(changelist).toString()), (cmdRes) -> "");
+            CmdRunner.getGitCmdRunner().run(() -> Utils.convertToArgArray(String.format(GIT_COMMIT_F_CMD, Paths.get(changelist).toString())), (cmdRes) -> "");
             Files.deleteIfExists(tmpFile);
             return null;
         });
