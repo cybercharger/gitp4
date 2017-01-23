@@ -13,8 +13,8 @@ import java.util.regex.Pattern;
  * Created by chriskang on 8/29/2016.
  */
 public class P4Change {
-    private static final String[] CREATE_EMPTY_CL_CMD = new String[]{"p4 change -i"};
-    private static final String[] GET_CL_FMT_CMD = new String[]{"p4 change -o"};
+    private static final String[] CREATE_EMPTY_CL_CMD = new String[]{"p4", "change", "-i"};
+    private static final String[] GET_CL_FMT_CMD = new String[]{"p4", "change", "-o"};
     private static final String changelistGroupId = "changelist";
     private static final Pattern pattern = Pattern.compile(String.format("Change (?<%s>\\d+) created\\.", changelistGroupId));
 

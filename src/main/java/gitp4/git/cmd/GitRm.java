@@ -1,16 +1,16 @@
 package gitp4.git.cmd;
 
-import gitp4.CmdRunner;
-import gitp4.Utils;
+import java.util.List;
 
 /**
  * Created by chriskang on 8/24/2016.
  */
 public class GitRm {
-    private static final String GIT_RM_CMD = Utils.getArgFormat("git rm -f %s");
+    public static void run(final List<String> files) {
+        GitAddRm.run(GitAddRm.Operation.Remove, files);
+    }
 
-    public static void run(final String files) {
-        if (files == null || files.isEmpty()) throw new NullPointerException("files");
-        CmdRunner.getGitCmdRunner().run(() -> Utils.convertToArgArray(String.format(GIT_RM_CMD, files)), (cmdRes) -> "");
+    public static void singleFile(final String file) {
+        GitAddRm.run(GitAddRm.Operation.Remove, file);
     }
 }

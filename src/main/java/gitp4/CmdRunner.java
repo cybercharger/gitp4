@@ -41,7 +41,7 @@ public class CmdRunner {
     public <T> T run(Callable<String[]> getCmd, Function<List<String>, T> resultHandler, String input) {
         return Utils.runtimeExceptionWrapper(() -> {
             String[] cmd = getCmd.call();
-            logger.debug("Running command: " + StringUtils.join(cmd, " "));
+            logger.debug("Running command: {[" + StringUtils.join(cmd, "],[") + "]}");
             List<String> cmdRes = CommandRunner.runCommand(cmd, input, null, onError);
             logger.debug("command output: \n" + StringUtils.join(cmdRes, "\n"));
             return resultHandler.apply(cmdRes);

@@ -5,6 +5,7 @@ import org.apache.log4j.Logger;
 
 import java.io.*;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.LinkedList;
@@ -28,12 +29,15 @@ public class CommandRunner {
                                           BiConsumer<String[], List<String>> onError)
             throws IOException, InterruptedException, ExecutionException {
         if (cmd == null || cmd.length <= 0) throw new NullPointerException("cmd");
-        logger.debug("Running cmd: " + StringUtils.join(cmd, " "));
         File tmpFile = null;
         try {
             ProcessBuilder pb = new ProcessBuilder(cmd);
             if (StringUtils.isNotBlank(dir) && Files.exists(Paths.get(dir))) {
                 pb.directory(new File(dir));
+                logger.debug("running command in dir: " + dir);
+            } else {
+                Path currentRelativePath = Paths.get("");
+                logger.debug(currentRelativePath.toAbsolutePath().toString());
             }
             if (StringUtils.isNotBlank(input)) {
                 tmpFile = File.createTempFile(TMP_PREFIX, TMP_POSTFIX);

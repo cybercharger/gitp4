@@ -2,6 +2,7 @@ package gitp4.p4;
 
 import org.apache.commons.lang3.StringUtils;
 
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -30,9 +31,8 @@ public class P4ChangeListInfo {
     private final P4UserInfo p4UserInfo;
     private final String fullComments;
 
-    public P4ChangeListInfo(List<String> cmdRes, String p4Depo) {
+    public P4ChangeListInfo(List<String> cmdRes, String p4Depot) {
         if (cmdRes == null || cmdRes.isEmpty()) throw new IllegalArgumentException("cmdRes is null or empty");
-        if (StringUtils.isBlank(p4Depo)) throw new NullPointerException("p4Depo");
         Matcher matcher = changePattern.matcher(cmdRes.get(0));
         if (!matcher.matches()) {
             throw new IllegalArgumentException("Cannot parse changelist info from " + cmdRes.get(0));
@@ -40,10 +40,12 @@ public class P4ChangeListInfo {
         changelist = matcher.group(changelistGroupId);
         timestamp = matcher.group(dateGroupId);
         p4UserInfo = new P4UserInfo(matcher.group(userGroupId));
-        files = cmdRes.stream()
-                .map(cur -> P4FileInfo.create(cur, p4Depo))
-                .filter(cur -> cur != null)
-                .collect(Collectors.toCollection(LinkedList::new));
+        files = StringUtils.isBlank(p4Depot) ?
+                Collections.emptyList() :
+                cmdRes.stream()
+                        .map(cur -> P4FileInfo.create(cur, p4Depot))
+                        .filter(cur -> cur != null)
+                        .collect(Collectors.toCollection(LinkedList::new));
 
         List<String> comments = new LinkedList<>();
         for (int i = commentStartLine; i < cmdRes.size(); ++i) {

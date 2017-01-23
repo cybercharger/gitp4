@@ -177,7 +177,7 @@ class GitP4Bridge {
 
         applyP4Changes(p4Changes, new P4RepositoryInfo(cloneString), option, profile);
 
-        GitAdd.run(profile.getConfigFilePath().toString());
+        GitAdd.singleFile(profile.getConfigFilePath().toString());
         GitCommit.run("update git p4 config");
 
         GitTag.tag(profile.getLastSubmitTag(), "git p4 clone");
@@ -413,7 +413,7 @@ class GitP4Bridge {
         }
     }
 
-//    @GitP4Operation(option = ResyncOption.class, operationName = "resync", description = "resync p4 changelists")
+    //    @GitP4Operation(option = ResyncOption.class, operationName = "resync", description = "resync p4 changelists")
     private void resync(ResyncOption option) throws IOException {
         Profile profile = new Profile(option.getProfile(), true);
         checkWorkingDir(profile.getConfigFilePath());
@@ -429,13 +429,10 @@ class GitP4Bridge {
         throw new NotImplementedException();
     }
 
-    private static void pagedActionOnFiles(Collection<String> files, Consumer<String> action, String log, int pageSize) throws Exception {
+    private static void pagedActionOnFiles(List<String> files, Consumer<List<String>> action, String log, int pageSize) throws Exception {
         if (!files.isEmpty()) {
             logger.info(log);
-            List<String> filesWithQuotes = files.stream()
-                    .map(cur -> String.format("\"%s\"", cur))
-                    .collect(Collectors.toList());
-            Utils.pagedAction(filesWithQuotes, pageSize, page -> action.accept(StringUtils.join(page, " ")));
+            Utils.pagedAction(files, pageSize, action);
         }
     }
 
@@ -509,6 +506,7 @@ class GitP4Bridge {
 
         // git rm files first, to avoid the case that move/delete & move/add in the same changelist, to rename a specific
         // file name. This happens when renaming files in IntelliJ
+//        pagedActionOnFiles(removeFiles, GitRm::run, "Git rm...", option.getPageSize());
         pagedActionOnFiles(removeFiles, GitRm::run, "Git rm...", option.getPageSize());
 
         for (String target : addFiles) {
@@ -525,20 +523,31 @@ class GitP4Bridge {
         }
 
         pagedActionOnFiles(addFiles, GitAdd::run, "Git add...", option.getPageSize());
+//        pagedActionOnFiles(addFiles, files -> {
+//            String[] cmd = new String[files.size() + 2];
+//            cmd[0] = "git";
+//            cmd[1] = "add";
+//            String[] a = files.toArray(new String[files.size()]);
+//            System.arraycopy(a, 0, cmd, 2, a.length);
+//            CmdRunner.getGitCmdRunner().run(() -> cmd, res -> "");
+//        }, "Git add...", option.getPageSize());
 
         updateLastSyncAndGitAdd(p4Change.getChangeList(), profile.getConfigFilePath());
+
+        P4ChangeListInfo clInfo = P4Describe.run(p4Change.getChangeList(), null);
+
         String comments = String.format(Profile.commitCommentsTemplate,
                 info.getDescription(),
                 repoInfo.getPath(),
                 p4Change.getChangeList(),
                 p4Change.getP4UserInfo().toString(),
-                p4Change.getDate());
+                clInfo.getTimestamp());
 
-        GitCommit.commitFromFile(comments, p4Change.getChangeList());
+        GitCommit.commitFromFile(comments, p4Change.getChangeList(), clInfo.getTimestamp());
     }
 
     private void updateGitP4Config(String path) throws Exception {
-        GitAdd.run(path);
+        GitAdd.singleFile(path);
         GitCommit.run("commit for .gitp4");
     }
 
@@ -546,7 +555,7 @@ class GitP4Bridge {
         Properties config = GitP4Config.load(path);
         config.setProperty(GitP4Config.lastSync, lastSync);
         GitP4Config.save(config, path, "");
-        GitAdd.run(path.toString());
+        GitAdd.singleFile(path.toString());
     }
 
     private void checkWorkingDir(Path path) {
