@@ -1,15 +1,16 @@
 package gitp4.git.cmd;
 
-import gitp4.CmdRunner;
+import java.util.List;
 
 /**
  * Created by chriskang on 8/24/2016.
  */
 public class GitAdd {
-    private static final String GIT_ADD_CMD = "git add %s";
+    public static void run(final List<String> files) {
+        GitOperation.run(GitOperation.Operation.Add, files);
+    }
 
-    public static void run(final String files) {
-        if (files == null || files.isEmpty()) throw new NullPointerException("files");
-        CmdRunner.getGitCmdRunner().run(() -> String.format(GIT_ADD_CMD, files), (cmdRes) -> "");
+    public static void singleFile(final String file) {
+        GitOperation.run(GitOperation.Operation.Add, file);
     }
 }

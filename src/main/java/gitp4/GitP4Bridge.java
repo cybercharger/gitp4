@@ -8,6 +8,7 @@ import gitp4.p4.*;
 import gitp4.p4.cmd.*;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
+import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -176,11 +177,11 @@ class GitP4Bridge {
 
         applyP4Changes(p4Changes, new P4RepositoryInfo(cloneString), option, profile);
 
-        GitAdd.run(profile.getConfigFilePath().toString());
+        GitAdd.singleFile(profile.getConfigFilePath().toString());
         GitCommit.run("update git p4 config");
 
         GitTag.tag(profile.getLastSubmitTag(), "git p4 clone");
-        GitCheckout.run(String.format("-b %s", option.getP4IntBranchName()));
+        GitCheckout.run(Arrays.asList("-b", option.getP4IntBranchName()));
     }
 
     @GitP4Operation(option = EmptyOption.class, description = "sync code from the specified p4 repository")
@@ -289,6 +290,13 @@ class GitP4Bridge {
 
         Map<String, String> gitP4DepotFileMap = affectedFiles.stream()
                 .collect(Collectors.toMap(cur -> cur, cur -> p4Repo.getPath() + cur));
+        if (affectedFiles.size() == 0) {
+            logger.info("No affected files found");
+            if (ignoredFiles.size() > 0) {
+                logger.info("ignored following files:\n" + StringUtils.join(ignoredFiles, "\n"));
+            }
+            return;
+        }
         logger.info(String.format("%1$d affected file(s):\n%2$s", affectedFiles.size(), StringUtils.join(affectedFiles, "\n")));
         Map<String, String> p4ExistingFiles = new HashMap<>();
 
@@ -365,7 +373,7 @@ class GitP4Bridge {
         logger.info("p4 edit...");
         P4Edit.batch(editSet, p4cl);
 
-        logger.info("p4 delete..");
+        logger.info("p4 delete...");
         P4Delete.batch(deleteSet, p4cl);
 
         List<Callable<Boolean>> theCallable = new LinkedList<>();
@@ -412,13 +420,26 @@ class GitP4Bridge {
         }
     }
 
-    private static void pagedActionOnFiles(Collection<String> files, Consumer<String> action, String log, int pageSize) throws Exception {
+    //    @GitP4Operation(option = ResyncOption.class, operationName = "resync", description = "resync p4 changelists")
+    private void resync(ResyncOption option) throws IOException {
+        Profile profile = new Profile(option.getProfile(), true);
+        checkWorkingDir(profile.getConfigFilePath());
+        Properties config = GitP4Config.load(profile.getConfigFilePath());
+        String expectedBranch = config.getProperty(GitP4Config.syncBranch);
+        if (expectedBranch == null) {
+            throw new GitP4Exception(String.format("Please set %1$s in your %2$s", GitP4Config.syncBranch, profile.getConfigFilePath()));
+        }
+        String actualBranch = GitBranch.getCurrentBranch();
+        if (!expectedBranch.equals(actualBranch)) {
+            throw new GitP4Exception(String.format("Please switch to branch [%s] and then run this command again", expectedBranch));
+        }
+        throw new NotImplementedException();
+    }
+
+    private static void pagedActionOnFiles(List<String> files, Consumer<List<String>> action, String log, int pageSize) throws Exception {
         if (!files.isEmpty()) {
             logger.info(log);
-            List<String> filesWithQuotes = files.stream()
-                    .map(cur -> String.format("\"%s\"", cur))
-                    .collect(Collectors.toList());
-            Utils.pagedAction(filesWithQuotes, pageSize, page -> action.accept(StringUtils.join(page, " ")));
+            Utils.pagedAction(files, pageSize, action);
         }
     }
 
@@ -510,18 +531,21 @@ class GitP4Bridge {
         pagedActionOnFiles(addFiles, GitAdd::run, "Git add...", option.getPageSize());
 
         updateLastSyncAndGitAdd(p4Change.getChangeList(), profile.getConfigFilePath());
+
+        P4ChangeListInfo clInfo = P4Describe.run(p4Change.getChangeList(), null);
+
         String comments = String.format(Profile.commitCommentsTemplate,
                 info.getDescription(),
                 repoInfo.getPath(),
                 p4Change.getChangeList(),
                 p4Change.getP4UserInfo().toString(),
-                p4Change.getDate());
+                clInfo.getTimestamp());
 
-        GitCommit.commitFromFile(comments, p4Change.getChangeList());
+        GitCommit.commitFromFile(comments, p4Change.getChangeList(), clInfo.getTimestamp());
     }
 
     private void updateGitP4Config(String path) throws Exception {
-        GitAdd.run(path);
+        GitAdd.singleFile(path);
         GitCommit.run("commit for .gitp4");
     }
 
@@ -529,7 +553,7 @@ class GitP4Bridge {
         Properties config = GitP4Config.load(path);
         config.setProperty(GitP4Config.lastSync, lastSync);
         GitP4Config.save(config, path, "");
-        GitAdd.run(path.toString());
+        GitAdd.singleFile(path.toString());
     }
 
     private void checkWorkingDir(Path path) {

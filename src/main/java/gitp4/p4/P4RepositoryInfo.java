@@ -7,6 +7,7 @@ import org.apache.commons.lang3.StringUtils;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.BiFunction;
 import java.util.regex.Pattern;
 
 /**
@@ -16,6 +17,11 @@ public class P4RepositoryInfo {
     public static final String SLASH = "/";
     public static final String TRIPLE_DOTS = "...";
     public static final String TRIPLE_DOTS_SPLIT_PTRN = "\\.\\.\\.";
+
+    private static final String DEPOT_FILE_PREFIX = "... depotFile";
+    private static final String CLIENT_FILE_PREFIX = "... clientFile";
+    private static final String PATH_PREFIX = "... path";
+
     private static final String VALID_PATH_HINT = "Supported formats are:\n" +
             "//path/to/your/repository/...\n" +
             "//path/to/your/repository/...#head\n" +
@@ -81,13 +87,23 @@ public class P4RepositoryInfo {
     }
 
     private P4PathMapInfo retrievePathMap() {
-        List<String> input = P4Where.run(pathWithSubContents);
+        List<String> input = P4Where.runZtag(pathWithSubContents);
         if (input == null || input.isEmpty()) throw new NullPointerException("input");
-        if (input.size() != 1) throw new IllegalArgumentException("input has more than 1 line");
-        String[] sections = StringUtils.split(input.get(0), TRIPLE_DOTS);
-        if (sections.length != 3) {
-            throw new IllegalArgumentException("Not supported format: " + input.get(0));
+        if (input.size() <= 3) {
+            throw new IllegalArgumentException(String.format("%1$d lines of the input: %2$s", input.size(), StringUtils.join(input, "\n")));
         }
-        return new P4PathMapInfo(sections[0].trim(), sections[1].trim(), sections[2].trim());
+
+        BiFunction<List<String>, String, String> pick = (list, prefix) -> {
+            String res = list.stream().filter(c -> c.startsWith(prefix)).map(c -> c.substring(prefix.length()).trim()).findFirst().orElse("");
+            if (res.endsWith(TRIPLE_DOTS)) {
+                res = res.substring(0, res.length() - TRIPLE_DOTS.length());
+            }
+            return res;
+        };
+
+        String depot = pick.apply(input, DEPOT_FILE_PREFIX);
+        String client = pick.apply(input, CLIENT_FILE_PREFIX);
+        String local = pick.apply(input, PATH_PREFIX);
+        return new P4PathMapInfo(depot, client, local);
     }
 }

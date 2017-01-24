@@ -28,21 +28,21 @@ public class CmdRunner {
     }
 
 
-    private final BiConsumer<String, List<String>> onError;
+    private final BiConsumer<String[], List<String>> onError;
 
-    public CmdRunner(BiConsumer<String, List<String>> onError) {
+    public CmdRunner(BiConsumer<String[], List<String>> onError) {
         this.onError = onError;
     }
 
-    public <T> T run(Callable<String> getCmd, Function<List<String>, T> resultHandler) {
+    public <T> T run(Callable<String[]> getCmd, Function<List<String>, T> resultHandler) {
         return run(getCmd, resultHandler, "");
     }
 
-    public <T> T run(Callable<String> getCmd, Function<List<String>, T> resultHandler, String input) {
+    public <T> T run(Callable<String[]> getCmd, Function<List<String>, T> resultHandler, String input) {
         return Utils.runtimeExceptionWrapper(() -> {
-            String cmd = getCmd.call();
-            logger.debug("Running command: " + cmd);
-            List<String> cmdRes = CommandRunner.runCommand(cmd, input, onError);
+            String[] cmd = getCmd.call();
+            logger.debug("Running command: {[" + StringUtils.join(cmd, "],[") + "]}");
+            List<String> cmdRes = CommandRunner.runCommand(cmd, input, null, onError);
             logger.debug("command output: \n" + StringUtils.join(cmdRes, "\n"));
             return resultHandler.apply(cmdRes);
 
@@ -57,19 +57,19 @@ public class CmdRunner {
         return p4CmdRunner;
     }
 
-    private static void gitCmdOnError(String cmd, List<String> error) {
+    private static void gitCmdOnError(String[] cmd, List<String> error) {
         onError(cmd, error, gitErrorHeaders);
     }
 
-    private static void p4CmdOnError(String cmd, List<String> error) {
+    private static void p4CmdOnError(String[] cmd, List<String> error) {
         onError(cmd, error, p4ErrorHeaders);
     }
 
-    private static void onError(String cmd, List<String> error, Set<String> headers) {
+    private static void onError(String cmd[], List<String> error, Set<String> headers) {
         if (error != null && !error.isEmpty() && !StringUtils.isBlank(error.get(0))) {
             String msg = StringUtils.join(error, "\n");
             if (headers.stream().filter(error.get(0)::startsWith).findAny().isPresent()) {
-                throw new GitP4Exception(String.format("%1$s\n%2$s", cmd, msg));
+                throw new GitP4Exception(String.format("%1$s\n%2$s", StringUtils.join(cmd, " "), msg));
             } else {
                 logger.debug(msg);
             }

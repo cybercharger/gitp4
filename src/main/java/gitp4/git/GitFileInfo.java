@@ -1,5 +1,6 @@
 package gitp4.git;
 
+import gitp4.Utils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.log4j.Logger;
 
@@ -7,7 +8,7 @@ import org.apache.log4j.Logger;
  * Created by ChrisKang on 8/27/2016.
  */
 public class GitFileInfo {
-    public static final String CMD_PARAM = "--pretty= --name-status --no-renames";
+    public static final String CMD_PARAM = Utils.getArgFormat("--pretty= --name-status --no-renames");
     private final GitChangeType changeType;
     private final String file;
 
