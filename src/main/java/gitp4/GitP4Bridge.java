@@ -290,6 +290,13 @@ class GitP4Bridge {
 
         Map<String, String> gitP4DepotFileMap = affectedFiles.stream()
                 .collect(Collectors.toMap(cur -> cur, cur -> p4Repo.getPath() + cur));
+        if (affectedFiles.size() == 0) {
+            logger.info("No affected files found");
+            if (ignoredFiles.size() > 0) {
+                logger.info("ignored following files:\n" + StringUtils.join(ignoredFiles, "\n"));
+            }
+            return;
+        }
         logger.info(String.format("%1$d affected file(s):\n%2$s", affectedFiles.size(), StringUtils.join(affectedFiles, "\n")));
         Map<String, String> p4ExistingFiles = new HashMap<>();
 

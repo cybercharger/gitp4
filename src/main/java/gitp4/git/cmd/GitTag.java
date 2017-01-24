@@ -11,7 +11,7 @@ import org.apache.log4j.Logger;
  */
 public class GitTag {
     private static final String GIT_TAG_CMD = Utils.getArgFormat("git tag -a %1$s -m\"%2$s\"");
-    private static final String[] GIT_TAG_RETRIEVE_CMD = new String[]{"git tag"};
+    private static final String[] GIT_TAG_RETRIEVE_CMD = new String[]{"git", "tag"};
 
     public static void tag(final String tagName, final String comments) {
         if (StringUtils.isBlank(tagName)) throw new NullPointerException("tagName");
