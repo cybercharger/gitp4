@@ -181,7 +181,7 @@ class GitP4Bridge {
         GitCommit.run("update git p4 config");
 
         GitTag.tag(profile.getLastSubmitTag(), "git p4 clone");
-        GitCheckout.run(String.format("-b %s", option.getP4IntBranchName()));
+        GitCheckout.run(Arrays.asList("-b", option.getP4IntBranchName()));
     }
 
     @GitP4Operation(option = EmptyOption.class, description = "sync code from the specified p4 repository")
@@ -513,7 +513,6 @@ class GitP4Bridge {
 
         // git rm files first, to avoid the case that move/delete & move/add in the same changelist, to rename a specific
         // file name. This happens when renaming files in IntelliJ
-//        pagedActionOnFiles(removeFiles, GitRm::run, "Git rm...", option.getPageSize());
         pagedActionOnFiles(removeFiles, GitRm::run, "Git rm...", option.getPageSize());
 
         for (String target : addFiles) {
@@ -530,14 +529,6 @@ class GitP4Bridge {
         }
 
         pagedActionOnFiles(addFiles, GitAdd::run, "Git add...", option.getPageSize());
-//        pagedActionOnFiles(addFiles, files -> {
-//            String[] cmd = new String[files.size() + 2];
-//            cmd[0] = "git";
-//            cmd[1] = "add";
-//            String[] a = files.toArray(new String[files.size()]);
-//            System.arraycopy(a, 0, cmd, 2, a.length);
-//            CmdRunner.getGitCmdRunner().run(() -> cmd, res -> "");
-//        }, "Git add...", option.getPageSize());
 
         updateLastSyncAndGitAdd(p4Change.getChangeList(), profile.getConfigFilePath());
 

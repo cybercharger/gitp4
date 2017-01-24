@@ -7,10 +7,10 @@ import java.util.List;
  */
 public class GitAdd {
     public static void run(final List<String> files) {
-        GitAddRm.run(GitAddRm.Operation.Add, files);
+        GitOperation.run(GitOperation.Operation.Add, files);
     }
 
     public static void singleFile(final String file) {
-        GitAddRm.run(GitAddRm.Operation.Add, file);
+        GitOperation.run(GitOperation.Operation.Add, file);
     }
 }

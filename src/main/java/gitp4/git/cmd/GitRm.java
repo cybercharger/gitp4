@@ -7,10 +7,10 @@ import java.util.List;
  */
 public class GitRm {
     public static void run(final List<String> files) {
-        GitAddRm.run(GitAddRm.Operation.Remove, files);
+        GitOperation.run(GitOperation.Operation.Remove, files);
     }
 
     public static void singleFile(final String file) {
-        GitAddRm.run(GitAddRm.Operation.Remove, file);
+        GitOperation.run(GitOperation.Operation.Remove, file);
     }
 }

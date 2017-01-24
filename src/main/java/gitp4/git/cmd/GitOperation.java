@@ -8,10 +8,11 @@ import java.util.List;
 /**
  * Created by chriskang on 1/23/2017.
  */
-public class GitAddRm {
+public class GitOperation {
     enum Operation {
         Add("add"),
-        Remove("rm");
+        Remove("rm"),
+        Checkout("checkout");
 
         private String opStr;
 
@@ -28,24 +29,24 @@ public class GitAddRm {
 
     private static final int PREFIX_LEN = 2;
 
-    public static void run(final Operation operation, final List<String> files) {
+    public static void run(final Operation operation, final List<String> args) {
         if (operation == null) throw new NullPointerException("operation");
-        if (files == null || files.isEmpty()) throw new NullPointerException("files");
-        String[] cmd = new String[files.size() + PREFIX_LEN];
+        if (args == null || args.isEmpty()) throw new NullPointerException("args");
+        String[] cmd = new String[args.size() + PREFIX_LEN];
         cmd[0] = GIT_CMD;
         cmd[1] = operation.getOpStr();
-        String[] fileArray = files.toArray(new String[files.size()]);
+        String[] fileArray = args.toArray(new String[args.size()]);
         System.arraycopy(fileArray, 0, cmd, PREFIX_LEN, fileArray.length);
         CmdRunner.getGitCmdRunner().run(() -> cmd, (cmdRes) -> "");
     }
 
-    public static void run(final Operation operation, final String file) {
+    public static void run(final Operation operation, final String arg) {
         if (operation == null) throw new NullPointerException("operation");
-        if (StringUtils.isBlank(file)) throw new NullPointerException("file");
+        if (StringUtils.isBlank(arg)) throw new NullPointerException("arg");
         String[] cmd = new String[1 + PREFIX_LEN];
         cmd[0] = GIT_CMD;
         cmd[1] = operation.getOpStr();
-        cmd[2] = file;
+        cmd[2] = arg;
         CmdRunner.getGitCmdRunner().run(() -> cmd, (cmdRes) -> "");
     }
 }
