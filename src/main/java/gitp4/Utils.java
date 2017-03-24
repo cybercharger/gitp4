@@ -10,10 +10,12 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.*;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.function.Predicate;
 
 /**
@@ -22,7 +24,7 @@ import java.util.function.Predicate;
 public class Utils {
     private static final Logger logger = Logger.getLogger(Utils.class);
     private static final String[] EMPTY_STRING_ARRAY = new String[0];
-    private static final String ARG_DELIMITER = "${delimiter}";
+    public static final String ARG_DELIMITER = "${delimiter}";
     private static final String ARG_DELIMITER_REGEX = "\\$\\{delimiter\\}";
 
     public static boolean isValidGitCommitId(String commitId) {
