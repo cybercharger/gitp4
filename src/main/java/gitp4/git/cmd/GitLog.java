@@ -10,7 +10,6 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -26,7 +25,8 @@ public class GitLog {
 
     public static List<GitLogInfo> run(final String rangeInfo) {
         validateInput(rangeInfo);
-        return CmdRunner.getGitCmdRunner().run(() -> Utils.convertToArgArray(String.format(GIT_LOG_CMD, GitLogInfo.CMD_PARAM, rangeInfo)),
+        final String range = rangeInfo.replace(" ", Utils.ARG_DELIMITER);
+        return CmdRunner.getGitCmdRunner().run(() -> Utils.convertToArgArray(String.format(GIT_LOG_CMD, GitLogInfo.CMD_PARAM, range)),
                 (cmdRes) -> {
                     List<GitLogInfo> result = new LinkedList<>();
                     cmdRes.forEach(cur -> result.add(0, new GitLogInfo(cur)));
@@ -36,7 +36,8 @@ public class GitLog {
 
     public static List<GitFileInfo> getAllChangedFiles(final String rangeInfo) {
         validateInput(rangeInfo);
-        return CmdRunner.getGitCmdRunner().run(() -> Utils.convertToArgArray(String.format(GIT_LOG_CMD, GitFileInfo.CMD_PARAM, rangeInfo)),
+        final String range = rangeInfo.replace(" ", Utils.ARG_DELIMITER);
+        return CmdRunner.getGitCmdRunner().run(() -> Utils.convertToArgArray(String.format(GIT_LOG_CMD, GitFileInfo.CMD_PARAM, range)),
                 (cmdRes) -> {
                     List<GitFileInfo> result = new LinkedList<>();
                     cmdRes.forEach(cur -> result.add(0, new GitFileInfo(cur)));
