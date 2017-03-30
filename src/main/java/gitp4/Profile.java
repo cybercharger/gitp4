@@ -12,7 +12,7 @@ import java.nio.file.Paths;
 public class Profile {
     public static final String CFG_FILE_NAME = "config";
     public static final String commitCommentsTemplate = "p4-%3$s: %1$s\n[p4 depot = %2$s change = %3$s from %4$s on %5$s]";
-    public static final String submitHints = "p4 changelist %1$s has been created. Please re-tag last_p4_submit to %2$s after having it checked in";
+    public static final String submitHints = "p4 changelist %1$s has been created. Please re-tag %2$s to %3$s after having it checked in";
 
     public static final String GIT_P4_SYNC_CMD_FMT = "%1$s...@%2$d,#head";
     public static final String LAST_SUBMIT_TAG = "last_p4_submit";
