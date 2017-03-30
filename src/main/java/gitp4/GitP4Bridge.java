@@ -413,11 +413,13 @@ class GitP4Bridge {
             }
         });
         if (outOfDate.isEmpty()) {
-            logger.info(String.format(Profile.submitHints, p4cl, latest.getCommit()));
+            logger.info(String.format(Profile.submitHints, p4cl, profile.getLastSubmitTag(), latest.getCommit()));
         } else {
             logger.warn(String.format("Please double check the following files which are changed after %1$d:\n%2$s",
                     lastSync, StringUtils.join(outOfDate, "\n")));
         }
+
+        P4Revert.revertUnchanged(p4cl);
     }
 
     //    @GitP4Operation(option = ResyncOption.class, operationName = "resync", description = "resync p4 changelists")
