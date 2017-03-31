@@ -18,13 +18,20 @@ public class CmdRunner {
 
     private static final CmdRunner gitCmdRunner = new CmdRunner(CmdRunner::gitCmdOnError);
     private static final CmdRunner p4CmdRunner = new CmdRunner(CmdRunner::p4CmdOnError);
+
     private static final Set<String> gitErrorHeaders = new HashSet<>();
     private static final Set<String> p4ErrorHeaders = new HashSet<>();
+    private static final Set<String> gitErrorIgnore = new HashSet<>();
 
     static {
+        // git ignore big file diff error
+        gitErrorIgnore.add("fatal: unable to generate diffstat for");
+        // git errors
         gitErrorHeaders.add("fatal:");
         gitErrorHeaders.add("error:");
+        // p4 errors
         p4ErrorHeaders.add("Perforce password (P4PASSWD) invalid or unset.");
+        p4ErrorHeaders.add("Your session has expired, please login again.");
     }
 
 
@@ -58,6 +65,10 @@ public class CmdRunner {
     }
 
     private static void gitCmdOnError(String[] cmd, List<String> error) {
+        if (setContains(error, gitErrorIgnore)) {
+            logger.warn(StringUtils.join(error, "\n"));
+            return;
+        }
         onError(cmd, error, gitErrorHeaders);
     }
 
@@ -65,14 +76,19 @@ public class CmdRunner {
         onError(cmd, error, p4ErrorHeaders);
     }
 
-    private static void onError(String cmd[], List<String> error, Set<String> headers) {
-        if (error != null && !error.isEmpty() && !StringUtils.isBlank(error.get(0))) {
-            String msg = StringUtils.join(error, "\n");
-            if (headers.stream().filter(error.get(0)::startsWith).findAny().isPresent()) {
-                throw new GitP4Exception(String.format("%1$s\n%2$s", StringUtils.join(cmd, " "), msg));
-            } else {
-                logger.debug(msg);
-            }
+    private static void onError(String cmd[], List<String> error, Set<String> errorHeaders) {
+        String msg = StringUtils.join(error, "\n");
+        if (setContains(error, errorHeaders)) {
+            throw new GitP4Exception(String.format("%1$s\n%2$s", StringUtils.join(cmd, " "), msg));
+
+        } else {
+            logger.debug(msg);
         }
+    }
+
+    private static boolean setContains(List<String> toTest, Set<String> set) {
+        if (toTest == null || toTest.isEmpty() || StringUtils.isBlank(toTest.get(0))) return false;
+        String firstLine = toTest.get(0);
+        return set.stream().anyMatch(firstLine::startsWith);
     }
 }
