@@ -10,13 +10,13 @@
         </layout>
     </appender>
     <appender name="FILE" class="org.apache.log4j.FileAppender">
-        <param name="file" value="gitp4.log"/>
+        <param name="file" value="${log.dir}/gitp4.log"/>
         <layout class="org.apache.log4j.PatternLayout">
             <param name="ConversionPattern" value="%d{MM/dd/yy HH:mm:ss:SSS:} [%C][%t]: %-5p - %m%n"/>
         </layout>
     </appender>
     <appender name="FILE_CAUTION" class="org.apache.log4j.FileAppender">
-        <param name="file" value="gitp4_caution.log"/>
+        <param name="file" value="${log.dir}/gitp4_caution.log"/>
         <param name="Threshold" value="WARN"/>
         <layout class="org.apache.log4j.PatternLayout">
             <param name="ConversionPattern" value="%d{MM/dd/yy HH:mm:ss:SSS:} [%C][%t]: %-5p - %m%n"/>

@@ -7,9 +7,8 @@ import org.apache.log4j.Logger;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -113,4 +112,53 @@ public class Utils {
         if (StringUtils.isBlank(argFormat)) throw new NullPointerException("argFormat");
         return argFormat.replace(" ", ARG_DELIMITER);
     }
+
+    public static void deleteDir(Path path) throws IOException {
+        walkThroughDir(path,
+                f -> {
+                    logger.info("deleting file: " + f);
+                    Files.delete(f);
+                },
+                d -> {
+                    logger.info("deleting dir: " + d);
+                    Files.delete(d);
+                });
+    }
+
+    public static void walkThroughDir(Path path,
+                                      ThrowableConsumer<Path, IOException> fileHandler,
+                                      ThrowableConsumer<Path, IOException> dirHandler) throws IOException {
+        if (!Files.isDirectory(path)) throw new IllegalArgumentException(String.format("%s is not a directory", path));
+        if (fileHandler == null) throw new NullPointerException("fileHandler");
+        if (dirHandler == null) throw new NullPointerException("dirHandler");
+        Files.walkFileTree(path, new FileVisitor<Path>() {
+            @Override
+            public FileVisitResult postVisitDirectory(Path dir, IOException exc)
+                    throws IOException {
+
+                dirHandler.accept(dir);
+                return FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult preVisitDirectory(Path dir,
+                                                     BasicFileAttributes attrs) throws IOException {
+                return FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+                fileHandler.accept(file);
+                return FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult visitFileFailed(Path file, IOException exc)
+                    throws IOException {
+                logger.error(exc.toString());
+                return FileVisitResult.TERMINATE;
+            }
+        });
+    }
 }
+

@@ -13,10 +13,7 @@ import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
+import java.nio.file.*;
 import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.function.Consumer;
@@ -383,9 +380,7 @@ class GitP4Bridge {
 
             theCallable.add(() -> {
                 try {
-                    Files.write(Paths.get(entry.getValue()),
-                            Files.readAllBytes(Paths.get(entry.getKey())),
-                            StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                    Files.copy(Paths.get(entry.getKey()), Paths.get(entry.getValue()), StandardCopyOption.REPLACE_EXISTING);
                     return true;
                 } catch (Exception e) {
                     logger.error(String.format("Failed to copy file %1$s -> %2$s", entry.getKey(), entry.getValue()), e);
@@ -476,7 +471,7 @@ class GitP4Bridge {
         List<String> ignoredFiles = new LinkedList<>();
         List<Callable<Boolean>> theCallable = new LinkedList<>();
         for (P4FileInfoEx file : info.getFiles()) {
-            if (!views.isEmpty() && !views.stream().filter(file.getDepotFile()::startsWith).findAny().isPresent()) {
+            if (!views.isEmpty() && views.stream().noneMatch(file.getDepotFile()::startsWith)) {
                 ignoredFiles.add(file.getDepotFile());
                 continue;
             }
@@ -493,9 +488,7 @@ class GitP4Bridge {
             addFiles.add(target);
             theCallable.add(() -> {
                 try {
-                    Files.write(Paths.get(target),
-                            Files.readAllBytes(Paths.get(file.getClientFile())),
-                            StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                    Files.copy(Paths.get(file.getClientFile()), Paths.get(target), StandardCopyOption.REPLACE_EXISTING);
                     return true;
                 } catch (Exception e) {
                     logger.error(String.format("Failed to copy file %1$s -> %2$s", file.getClientFile(), target), e);
